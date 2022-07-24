@@ -4,12 +4,18 @@ plugins=(git fzf-zsh-plugin)
 source $ZSH/oh-my-zsh.sh
 
 
+source ~/.secrets.sh
 
 eval $(thefuck --alias)
 source <(kubectl completion zsh)
-export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
-source ~/.secrets.sh
+if [ -d "/opt/homebrew/opt/libpq/bin" ];then
+	export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+fi
+
+if [ -d "/usr/local/lib/docker/cli-plugins" ];then
+	export PATH="/usr/local/lib/docker/cli-plugins:$PATH"
+fi
 
 source ~/.asdf/plugins/java/set-java-home.zsh
 
@@ -17,7 +23,6 @@ source ~/.asdf/plugins/java/set-java-home.zsh
 
 alias kc=kubectl
 
- export PATH="/usr/local/lib/docker/cli-plugins:$PATH"
 # export PATH="$HOME/.asdf/shims:$PATH"
 
 
