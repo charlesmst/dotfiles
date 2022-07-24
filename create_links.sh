@@ -2,6 +2,8 @@
 
 set -e
 
+ln -fs $(pwd)/.zshrc  $HOME/.zshrc
+
 ln -fs $(pwd)/.vimrc  $HOME/.vimrc
 ln -fs $(pwd)/.ideavimrc  $HOME/.ideavimrc
 
