@@ -1,0 +1,55 @@
+imap kj <Esc>
+set timeoutlen=1000
+
+
+set NERDTree
+set multiple-cursors
+set relativenumber
+set highlightedyank
+
+set surround
+let mapleader=" "
+
+set showmode
+set so=5
+set incsearch
+set nu
+set smartcase
+set clipboard+=unnamedplus
+
+nmap <leader>fb <Action>(RecentFiles)
+nmap <leader>fg <Action>(FindInPath)
+nmap <leader>z <Action>(ToggleDistractionFreeMode)
+:map <leader>p <Action>(SearchEverywhere)
+:map <leader>e :NERDTreeFocus<CR>
+nmap <leader>q <Action>(CloseEditor)
+# nmap <leader>r <Action>(RenameElement)
+nmap <leader>F <Action>(ReformatCode)
+nmap <leader>i <Action>(Generate)
+nnoremap <leader>c :action CommentByLineComment<CR>
+vnoremap <leader>c :action CommentByLineComment<CR>
+nnoremap <leader>r :action Refactorings.QuickListPopupAction<CR>
+vnoremap <leader>r :action Refactorings.QuickListPopupAction<CR>
+nnoremap <leader>o :action OptimizeImports<CR>
+nnoremap gi :action GotoImplementation<CR>
+nnoremap gr :action GotoDeclaration<CR>
+nnoremap gt :action GotoTest<CR>
+nnoremap gb :action Back<CR>
+nnoremap gf :action Forward<CR>
+:map ,t <Action>(ActivateDebugToolWindow)
+# Diagnostics
+nmap <leader>d <Action>(ShowErrorDescription)
+nmap <leader>s :action ShowIntentionActions<CR>
+
+:map ,t <Action>(ActivateDebugToolWindow)
+nnoremap ,r :action ContextRun<CR>
+nnoremap ,c :action RunClass<CR>
+nnoremap ,f :action ChooseRunConfiguration<CR>
+nnoremap ,t :action ActivateRunToolWindow<CR>
+nnoremap ,u :action Rerun<CR>
+
+
+nnoremap [m :action MethodUp<CR>
+nnoremap ]m :action MethodDown<CR>
+onoremap [m :action MethodUp<CR>
+onoremap ]m :action MethodDown<CR>
