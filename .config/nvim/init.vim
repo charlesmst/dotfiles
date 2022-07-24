@@ -15,6 +15,7 @@ Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'editorconfig/editorconfig-vim'
 call plug#end()
 
+set clipboard+=unnamedplus
 let g:EditorConfig_exec_path = '/opt/homebrew/Cellar/editorconfig/0.12.5/bin/editorconfig'
 let g:EditorConfig_core_mode = 'external_command'
 
