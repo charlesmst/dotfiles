@@ -18,3 +18,6 @@ if [ -d "$HOME/.config/karabiner/assets/complex_modifications/" ]; then
 
 fi
 
+
+# Requires oh my tmux
+ln -fs "$(pwd)/.tmux.conf.local"  "$HOME/.tmux.conf.local"
