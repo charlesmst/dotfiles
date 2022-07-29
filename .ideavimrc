@@ -15,6 +15,7 @@ set so=5
 set incsearch
 set nu
 set smartcase
+set ignorecase
 set clipboard+=unnamedplus
 
 nmap <leader>fb <Action>(RecentFiles)
