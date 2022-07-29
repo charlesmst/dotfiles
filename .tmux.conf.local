@@ -392,9 +392,11 @@ set -g @plugin 'tmux-plugins/tmux-copycat'
 set -g @plugin 'tmux-plugins/tmux-cpu'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @plugin 'sainnhe/tmux-fzf'
+
 set -g @continuum-restore 'on'
 
-
+bind-key "p" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh attach"
 # -- custom variables ----------------------------------------------------------
 # bash
 # to define a custom #{foo} variable, define a POSIX shell function between the
