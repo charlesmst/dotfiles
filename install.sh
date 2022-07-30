@@ -1,5 +1,5 @@
 #!/bin/bash
-
+cd ~/
 
 # Install yay
 sudo pacman -S --needed base-devel git
