@@ -48,6 +48,9 @@ chsh -s $(which zsh)
 
 # oh my zsh
 git clone https://github.com/ohmyzsh/ohmyzsh ~/.oh-my-zsh
+# oh my tmux
+git clone https://github.com/gpakosz/.tmux.git ~/.tmux
+ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
 # vim plug
 curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
