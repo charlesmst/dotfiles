@@ -9,7 +9,7 @@ makepkg -si
 
 
 pacman_software=git make typescript
-yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl
+yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf
 
 sudo pacman -Sy $pacman_software
 yay -Sy $software
@@ -50,13 +50,14 @@ chsh -s $(which zsh)
 
 # oh my zsh
 git clone https://github.com/ohmyzsh/ohmyzsh ~/.oh-my-zsh
+
 # oh my tmux
 git clone https://github.com/gpakosz/.tmux.git ~/.tmux
 ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
-# vim plug
-curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
+# vim plug
+sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim --create-dirs \
+       https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
 
 # Docker desktop
 wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
