@@ -35,8 +35,8 @@ alias z="zoxide"
 eval "$(zoxide init zsh)"
 
 export AWS_PROFILE=dev
-. /opt/homebrew/opt/asdf/asdf.sh
 
-#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	. /opt/homebrew/opt/asdf/asdf.sh
+fi
+
