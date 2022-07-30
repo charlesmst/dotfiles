@@ -37,14 +37,13 @@ gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Super>1
 
 
 # pop os shell
-gnome-extensions disable pop-shell@system76.com
-sudo pacman -Sy git typescript make
-git clone https://github.com/pop-os/shell.git
-cd shell
-make local-install
-cd ~/
-gnome-extensions enable pop-shell@system76.com
-
+if [ ! -d "$HOME/shell/" ]; then
+	git clone https://github.com/pop-os/shell.git
+	cd shell
+	make local-install
+	cd ~/
+	gnome-extensions enable pop-shell@system76.com
+fi
 
 # change default shell
 chsh -s $(which zsh)
