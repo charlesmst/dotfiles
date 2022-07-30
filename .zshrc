@@ -31,9 +31,6 @@ set -o vi
 export EDITOR=nvim
 alias vim=nvim
 
-alias z="zoxide"
-eval "$(zoxide init zsh)"
-
 export AWS_PROFILE=dev
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
