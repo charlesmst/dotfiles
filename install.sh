@@ -8,20 +8,12 @@ cd yay-git/
 makepkg -si
 
 
-sofwares=tmux google-chrome slack-desktop asdf-vm gnome-shell-extension-pop-shell zsh lazygit neovim thefuck kubectl
+pacman_software=git make typescript
+yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl
 
-yay -Sy $softwares
+sudo pacman -Sy $pacman_software
+yay -Sy $software
 
-# Docker desktop
-wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
-sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
-
-# pop os shell
-sudo pacman -Sy git typescript make
-git clone https://github.com/pop-os/shell.git
-cd shell
-make local-install
-cd ~/
 
 # enable dark theme chrome
 bash -c "$(curl -fsSL "https://raw.githubusercontent.com/felipecassiors/dotfiles/master/scripts/enable_chrome_dark_mode.sh")"
@@ -43,6 +35,17 @@ gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 '["<Super>3
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 '["<Super>2"]'
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Super>1"]'
 
+
+# pop os shell
+gnome-extensions disable pop-shell@system76.com
+sudo pacman -Sy git typescript make
+git clone https://github.com/pop-os/shell.git
+cd shell
+make local-install
+cd ~/
+gnome-extensions enable pop-shell@system76.com
+
+
 # change default shell
 chsh -s $(which zsh)
 
@@ -54,3 +57,8 @@ ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
 # vim plug
 curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+
+# Docker desktop
+wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
+sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
