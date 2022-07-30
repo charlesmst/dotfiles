@@ -1,6 +1,15 @@
-. "$HOME/.config/zsh/zsh_prompt.zsh"
+export ZDOTDIR=$HOME/.config/zsh
 . "$HOME/.config/zsh/zsh_functions.zsh"
-. "$HOME/.config/zsh/zsh_vi_mode.zsh"
+
+zsh_add_file zsh_prompt.zsh
+zsh_add_file zsh_vi_mode.zsh
+
+# Plugins
+zsh_add_plugin "zsh-users/zsh-autosuggestions"
+zsh_add_plugin "zsh-users/zsh-syntax-highlighting"
+zsh_add_plugin "hlissner/zsh-autopair"
+zsh_add_completion "esc/conda-zsh-completion" false
+
 source ~/.secrets.sh
 
 eval $(thefuck --alias)

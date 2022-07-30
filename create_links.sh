@@ -3,7 +3,7 @@
 set -e
 
 ln -fs $(pwd)/.zshrc  $HOME/.zshrc
-ln -fs $(pwd)/.config/zsh/ $HOME/.config/zsh/
+ln -fs $(pwd)/.config/zsh $HOME/.config/zsh
 
 ln -fs $(pwd)/.vimrc  $HOME/.vimrc
 ln -fs $(pwd)/.ideavimrc  $HOME/.ideavimrc
