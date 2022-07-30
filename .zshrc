@@ -1,9 +1,6 @@
-export ZSH="$HOME/.oh-my-zsh"
-SH_THEME="robbyrussell"
-plugins=(git fzf-zsh-plugin)
-source $ZSH/oh-my-zsh.sh
-
-
+. "$HOME/.config/zsh/zsh_prompt.zsh"
+. "$HOME/.config/zsh/zsh_functions.zsh"
+. "$HOME/.config/zsh/zsh_vi_mode.zsh"
 source ~/.secrets.sh
 
 eval $(thefuck --alias)
