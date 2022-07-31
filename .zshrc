@@ -1,4 +1,4 @@
-export ZDOTDIR=$HOME/.config/zsh
+export ZHOME=$HOME/.config/zsh
 . "$HOME/.config/zsh/zsh_functions.zsh"
 
 setopt autocd extendedglob nomatch menucomplete
