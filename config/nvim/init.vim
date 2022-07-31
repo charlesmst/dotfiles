@@ -7,21 +7,14 @@ Plug 'neoclide/coc.nvim', {'branch': 'master', 'do': 'yarn install --frozen-lock
 
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
-Plug 'hashivim/vim-terraform'
-Plug 'tpope/vim-fugitive'
 Plug 'nvim-telescope/telescope.nvim'
-Plug 'nvim-lua/plenary.nvim'
 Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'overcache/NeoSolarized'
-Plug 'altercation/vim-colors-solarized'
-Plug 'editorconfig/editorconfig-vim'
 Plug 'machakann/vim-highlightedyank'
 
 call plug#end()
 
 set clipboard+=unnamedplus
-let g:EditorConfig_exec_path = '/opt/homebrew/Cellar/editorconfig/0.12.5/bin/editorconfig'
-let g:EditorConfig_core_mode = 'external_command'
 
 set relativenumber
 " I could not make solarized work without setting gruvbox first
