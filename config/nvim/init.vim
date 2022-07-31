@@ -67,7 +67,12 @@ nmap <silent> gr <Plug>(coc-references)
 
 " Some settings I got from here https://github.com/neoclide/coc.nvim
 xmap <leader>fs  <Plug>(coc-format-selected)
+xmap <leader>F <Cmd>:call CocAction('format')<CR>
+nmap <leader>F <Cmd>:call CocAction('format')<CR>
 nmap <leader>fs  <Plug>(coc-format-selected)
+nmap <leader>s  <Plug>(coc-codeaction)
+nmap <leader>r <Plug>(coc-rename)
+
 inoremap <expr> <cr> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 
 " use <tab> for trigger completion and navigate to the next complete item
