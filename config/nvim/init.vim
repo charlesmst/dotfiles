@@ -7,6 +7,7 @@ Plug 'neoclide/coc.nvim', {'branch': 'master', 'do': 'yarn install --frozen-lock
 
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
+Plug 'nvim-lua/plenary.nvim'
 Plug 'nvim-telescope/telescope.nvim'
 Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'overcache/NeoSolarized'
@@ -18,13 +19,15 @@ Plug 'ryanoasis/vim-devicons'
 call plug#end()
 
 set clipboard+=unnamedplus
-
+set smartcase
+set ignorecase
 set relativenumber
+set mouse=a
+
 " I could not make solarized work without setting gruvbox first
 colorscheme gruvbox-baby
 colorscheme NeoSolarized
 
-set mouse=a
 
 let g:mapleader = "\<Space>"
 
