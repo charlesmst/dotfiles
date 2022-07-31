@@ -38,6 +38,7 @@ gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Super>1
 
 # pop os shell
 if [ ! -d "$HOME/shell/" ]; then
+	cd ~/
 	git clone https://github.com/pop-os/shell.git
 	cd shell
 	make local-install
