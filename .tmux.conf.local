@@ -397,6 +397,8 @@ set -g @plugin 'sainnhe/tmux-fzf'
 set -g @continuum-restore 'on'
 
 bind-key "p" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh attach"
+bind-key "k" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh kill"
+# -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
 # bash
 # to define a custom #{foo} variable, define a POSIX shell function between the
