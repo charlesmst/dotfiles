@@ -10,4 +10,5 @@ fi
 
 
 . /opt/homebrew/opt/asdf/asdf.sh
-alias idea="/Applications/IntelliJ\ IDEA\ CE.app/Contents/MacOS/idea"
+
+export IDEA=/Applications/IntelliJ\ IDEA\ CE.app/Contents/MacOS/idea
