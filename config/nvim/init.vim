@@ -11,6 +11,7 @@ Plug 'nvim-telescope/telescope.nvim'
 Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'overcache/NeoSolarized'
 Plug 'machakann/vim-highlightedyank'
+Plug 'preservim/nerdtree'
 
 call plug#end()
 
@@ -33,11 +34,12 @@ nnoremap <silent> <leader>p :FZF<CR>
 nnoremap <silent> <leader>q :q<CR>
 nnoremap <silent> <leader>w :w<CR>
 inoremap <silent><expr> <c-space> coc#refresh()
-:nmap <space>e <Cmd>CocCommand explorer<CR>
+:nmap <space>e <Cmd>:NERDTreeToggle<CR>
 inoremap kj <ESC>
 
 
 autocmd BufEnter * if (winnr("$") == 1 && &filetype == 'coc-explorer') | q | endif
+autocmd BufEnter * if (winnr("$") == 1 && &filetype == 'nerdtree') | q | endif
 
 " Find files using Telescope command-line sugar.
 nnoremap <leader>ff <cmd>Telescope find_files<cr>
