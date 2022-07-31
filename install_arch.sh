@@ -48,9 +48,6 @@ fi
 # change default shell
 chsh -s $(which zsh)
 
-# oh my zsh
-git clone https://github.com/ohmyzsh/ohmyzsh ~/.oh-my-zsh
-
 # oh my tmux
 git clone https://github.com/gpakosz/.tmux.git ~/.tmux
 ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
@@ -62,3 +59,7 @@ sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.
 # Docker desktop
 wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
+
+
+./create_links.sh
+./asdf.sh
