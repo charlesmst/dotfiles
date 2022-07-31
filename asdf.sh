@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEFAULT_NODE_VERSION=12.22.0
+DEFAULT_NODE_VERSION=16.16.0
 
 asdf plugin-add kubectl https://github.com/Banno/asdf-kubectl.git || true
 asdf plugin-add helm https://github.com/Antiarchitect/asdf-helm.git || true
