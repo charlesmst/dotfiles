@@ -10,5 +10,4 @@ defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$(pwd)/macos/iTe
 # Tell iTerm2 to use the custom preferences in the directory
 defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
 
-./create_links.sh
-./asdf.sh
+./install_generic.sh

@@ -48,18 +48,8 @@ fi
 # change default shell
 chsh -s $(which zsh)
 
-# oh my tmux
-git clone https://github.com/gpakosz/.tmux.git ~/.tmux
-ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
-
-# vim plug
-sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim --create-dirs \
-       https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
-
 # Docker desktop
 wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 
-
-./create_links.sh
-./asdf.sh
+./install_generic.sh
