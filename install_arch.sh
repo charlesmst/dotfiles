@@ -9,7 +9,7 @@ makepkg -si
 
 
 pacman_software=git make typescript
-yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf powerline powerline-fonts
+yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf nerd-fonts-complete
 
 sudo pacman -Sy $pacman_software
 yay -Sy $software
