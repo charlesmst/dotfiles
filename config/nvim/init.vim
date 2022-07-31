@@ -12,6 +12,8 @@ Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'overcache/NeoSolarized'
 Plug 'machakann/vim-highlightedyank'
 Plug 'preservim/nerdtree'
+Plug 'Xuyuanp/nerdtree-git-plugin'
+Plug 'ryanoasis/vim-devicons'
 
 call plug#end()
 
@@ -40,6 +42,10 @@ inoremap kj <ESC>
 
 autocmd BufEnter * if (winnr("$") == 1 && &filetype == 'coc-explorer') | q | endif
 autocmd BufEnter * if (winnr("$") == 1 && &filetype == 'nerdtree') | q | endif
+" Start NERDTree when Vim starts with a directory argument.
+autocmd StdinReadPre * let s:std_in=1
+autocmd VimEnter * if argc() == 1 && isdirectory(argv()[0]) && !exists('s:std_in') |
+    \ execute 'NERDTree' argv()[0] | wincmd p | enew | execute 'cd '.argv()[0] | endif
 
 " Find files using Telescope command-line sugar.
 nnoremap <leader>ff <cmd>Telescope find_files<cr>
