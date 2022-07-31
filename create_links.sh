@@ -24,9 +24,3 @@ fi
 ln -fs "$(pwd)/.tmux.conf.local"  "$HOME/.tmux.conf.local"
 
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	# Specify the preferences directory
-	defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$(pwd)/macos/iTerm/settings"
-	# Tell iTerm2 to use the custom preferences in the directory
-	defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
-fi
