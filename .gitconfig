@@ -1,6 +1,0 @@
-[user]
-	email = charles.stein@bitso.com
-	name = Charles Stein
-[push]
-	autoSetupRemoter = true
-	autoSetupRemote = true
