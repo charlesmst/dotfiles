@@ -10,7 +10,7 @@ asdf plugin-add terraform https://github.com/Banno/asdf-hashicorp.git || true
 asdf plugin-add vault https://github.com/Banno/asdf-hashicorp.git || true
 asdf plugin-add tflint https://github.com/skyzyx/asdf-tflint || true
 asdf plugin-add golang https://github.com/kennyp/asdf-golang.git || true
-
+asdf plugin-add java https://github.com/halcyon/asdf-java.git || true
 
 asdf install kubectl latest 1.15.0 1.17.0
 asdf install helm latest 2.14.3
@@ -20,6 +20,7 @@ asdf install vault latest 1.3.2
 asdf install nodejs $DEFAULT_NODE_VERSION
 asdf install tflint 0.23.1
 asdf install golang 1.17.1
+asdf install java openjdk-17.0.2
 
 asdf global kubectl 1.17.0
 asdf global helm 2.14.3
@@ -29,4 +30,4 @@ asdf global terraform 1.0.0
 asdf global vault 1.3.2
 asdf global tflint 0.23.1
 asdf global golang 1.17.1
-
+asdf global java openjdk-17.0.2
