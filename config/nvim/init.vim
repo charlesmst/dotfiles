@@ -13,7 +13,7 @@ Plug 'luisiacc/gruvbox-baby', {'branch': 'main'}
 Plug 'overcache/NeoSolarized'
 Plug 'machakann/vim-highlightedyank'
 Plug 'preservim/nerdtree'
-Plug 'Xuyuanp/nerdtree-git-plugin'
+" Plug 'Xuyuanp/nerdtree-git-plugin'
 Plug 'ryanoasis/vim-devicons'
 
 call plug#end()

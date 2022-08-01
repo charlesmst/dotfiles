@@ -48,5 +48,7 @@ export AWS_PROFILE=dev
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	zsh_add_file zsh_path_mac.zsh
+else
+	zsh_add_file zsh_path_linux.zsh
 fi
 

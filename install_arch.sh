@@ -1,19 +1,27 @@
 #!/bin/bash
+initial_path=$(pwd)
 cd ~/
 
 # Install yay
 sudo pacman -S --needed base-devel git
-git clone https://aur.archlinux.org/yay-git.git
-cd yay-git/
-makepkg -si
 
+if [ ! -d "$HOME/yay-git/" ]; then
+	git clone https://aur.archlinux.org/yay-git.git
+	cd yay-git/
+	makepkg -si
+fi
 
-pacman_software=git make typescript
-yay_sofware=tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf nerd-fonts-complete
+pacman_software="git make typescript"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf"
 
+echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
-yay -Sy $software
+echo "installing $yay_software with yay"
+yay -Sy $yay_software
 
+echo "installing fonts"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
+exit 0 
 
 # enable dark theme chrome
 bash -c "$(curl -fsSL "https://raw.githubusercontent.com/felipecassiors/dotfiles/master/scripts/enable_chrome_dark_mode.sh")"
@@ -53,4 +61,5 @@ chsh -s $(which zsh)
 wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 
+cd $initial_path
 ./install_generic.sh
