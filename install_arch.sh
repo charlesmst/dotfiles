@@ -12,7 +12,7 @@ if [ ! -d "$HOME/yay-git/" ]; then
 fi
 
 pacman_software="git make typescript"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck kubectl fzf"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
@@ -21,7 +21,6 @@ yay -Sy $yay_software
 
 echo "installing fonts"
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
-exit 0 
 
 # enable dark theme chrome
 bash -c "$(curl -fsSL "https://raw.githubusercontent.com/felipecassiors/dotfiles/master/scripts/enable_chrome_dark_mode.sh")"
