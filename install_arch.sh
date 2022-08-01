@@ -12,7 +12,7 @@ if [ ! -d "$HOME/yay-git/" ]; then
 fi
 
 pacman_software="git make typescript"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
