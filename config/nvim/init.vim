@@ -39,7 +39,9 @@ nnoremap <silent> <leader>p :FZF<CR>
 nnoremap <silent> <leader>q :q<CR>
 nnoremap <silent> <leader>w :w<CR>
 inoremap <silent><expr> <c-space> coc#refresh()
-:nmap <space>e <Cmd>:NERDTreeToggle<CR>
+
+nnoremap <silent> <expr> <space>e g:NERDTree.IsOpen() ? "\:NERDTreeClose<CR>" : bufexists(expand('%')) ? "\:NERDTreeFind<CR>" : "\:NERDTree<CR>"
+
 inoremap kj <ESC>
 
 
