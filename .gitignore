@@ -4,3 +4,4 @@
 .config/zsh/.zsh_history
 .config/zsh/zsh
 .idea
+config/zsh/plugins
