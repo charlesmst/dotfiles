@@ -11,13 +11,18 @@ if [ ! -d "$HOME/yay-git/" ]; then
 	makepkg -si
 fi
 
-pacman_software="git make typescript"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition"
+pacman_software="git make typescript xclip a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libxv wavpack x264 xvidcore"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition gnome-terminal-transparency extension-manager"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
 echo "installing $yay_software with yay"
 yay -Sy $yay_software
+
+echo "installing flatpacks"
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+flatpak install flathub com.spotify.Client
 
 echo "installing fonts"
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
