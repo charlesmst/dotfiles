@@ -1,6 +1,8 @@
 export ZHOME=$HOME/.config/zsh
 . "$HOME/.config/zsh/zsh_functions.zsh"
 
+export HISTFILE=$HOME/.zsh_history
+
 setopt autocd extendedglob nomatch menucomplete
 setopt interactive_comments
 stty stop undef		# Disable ctrl-s to freeze terminal.
