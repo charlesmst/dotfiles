@@ -12,7 +12,7 @@ asdf plugin-add tflint https://github.com/skyzyx/asdf-tflint || true
 asdf plugin-add golang https://github.com/kennyp/asdf-golang.git || true
 asdf plugin-add java https://github.com/halcyon/asdf-java.git || true
 
-asdf install kubectl latest 1.15.0 1.17.0
+asdf install kubectl 1.24.3
 asdf install helm latest 2.14.3
 asdf install packer latest 1.3.3
 asdf install terraform latest 0.11.11 0.12.21 0.13.6 0.14.7 0.15.1 1.0.0
@@ -22,7 +22,7 @@ asdf install tflint 0.23.1
 asdf install golang 1.17.1
 asdf install java openjdk-17.0.2
 
-asdf global kubectl 1.17.0
+asdf global kubectl 1.24.3
 asdf global helm 2.14.3
 asdf global nodejs $DEFAULT_NODE_VERSION
 asdf global packer 1.3.3
