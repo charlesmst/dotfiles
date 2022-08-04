@@ -11,8 +11,8 @@ if [ ! -d "$HOME/yay-git/" ]; then
 	makepkg -si
 fi
 
-pacman_software="git make typescript xclip a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libxv wavpack x264 xvidcore"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli spotify docker docker-compose"
+pacman_software="git make typescript xclip a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libxv wavpack x264 xvidcore fzf tmux zsh"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm lazygit lazydocker neovim thefuck intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli spotify docker docker-compose"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
