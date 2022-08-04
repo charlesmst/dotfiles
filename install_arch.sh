@@ -12,7 +12,7 @@ if [ ! -d "$HOME/yay-git/" ]; then
 fi
 
 pacman_software="git make typescript xclip a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libxv wavpack x264 xvidcore"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm zsh lazygit neovim thefuck fzf intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli spotify"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
@@ -21,8 +21,6 @@ yay -Sy $yay_software
 
 echo "installing flatpacks"
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-flatpak install flathub com.spotify.Client
 
 echo "installing fonts"
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
@@ -60,10 +58,6 @@ fi
 
 # change default shell
 chsh -s $(which zsh)
-
-# Docker desktop
-wget "https://desktop.docker.com/linux/main/amd64/docker-desktop-4.10.1-x86_64.pkg.tar.zst"
-sudo pacman -U "docker-desktop-4.10.1-x86_64.pkg.tar.zst"
 
 cd $initial_path
 ./install_generic.sh
