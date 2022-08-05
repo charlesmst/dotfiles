@@ -27,8 +27,8 @@ nmap <leader>q <Action>(CloseEditor)
 # nmap <leader>r <Action>(RenameElement)
 nmap <leader>F <Action>(ReformatCode)
 nmap <leader>i <Action>(Generate)
-nnoremap <leader>c :action CommentByLineComment<CR>
-vnoremap <leader>c :action CommentByLineComment<CR>
+nnoremap gcc :action CommentByLineComment<CR>
+vnoremap gcc :action CommentByLineComment<CR>
 nnoremap <leader>r :action Refactorings.QuickListPopupAction<CR>
 vnoremap <leader>r :action Refactorings.QuickListPopupAction<CR>
 nnoremap <leader>o :action OptimizeImports<CR>

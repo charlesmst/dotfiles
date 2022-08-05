@@ -15,6 +15,7 @@ Plug 'machakann/vim-highlightedyank'
 Plug 'preservim/nerdtree'
 " Plug 'Xuyuanp/nerdtree-git-plugin'
 Plug 'ryanoasis/vim-devicons'
+Plug 'tpope/vim-commentary'
 
 call plug#end()
 
@@ -63,8 +64,6 @@ nmap <silent> gd <Plug>(coc-definition)
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-implementation)
 nmap <silent> gr <Plug>(coc-references)
-
-
 
 
 " Some settings I got from here https://github.com/neoclide/coc.nvim
