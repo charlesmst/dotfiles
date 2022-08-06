@@ -34,19 +34,19 @@ sudo usermod -a -G docker $USER
 
 
 # change gnome settings for multiple workspaces
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-6 '["<Control><Super>6"]'
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-5 '["<Control><Super>5"]'
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-4 '["<Control><Super>4"]'
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-3 '["<Control><Super>3"]'
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-2 '["<Control><Super>2"]'
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-1 '["<Control><Super>1"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-6 '["<Control><Shift><Alt>6"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-5 '["<Control><Shift><Alt>5"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-4 '["<Control><Shift><Alt>4"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-3 '["<Control><Shift><Alt>3"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-2 '["<Control><Shift><Alt>2"]'
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-1 '["<Control><Shift><Alt>1"]'
 
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-6 '["<Super>6"]'
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-5 '["<Super>5"]'
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 '["<Super>4"]'
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 '["<Super>3"]'
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 '["<Super>2"]'
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Super>1"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-6 '["<Shift><Alt>6"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-5 '["<Shift><Alt>5"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 '["<Shift><Alt>4"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 '["<Shift><Alt>3"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 '["<Shift><Alt>2"]'
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Shift><Alt>1"]'
 
 
 # pop os shell
