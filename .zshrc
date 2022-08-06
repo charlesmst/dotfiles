@@ -2,6 +2,9 @@ export ZHOME=$HOME/.config/zsh
 . "$HOME/.config/zsh/zsh_functions.zsh"
 
 export HISTFILE=$HOME/.zsh_history
+HISTSIZE=1000
+SAVEHIST=1000
+setopt appendhistory
 export FZF_DEFAULT_COMMAND="find . -type f -not -path .git  -not -path node_modules -prune"
 
 setopt autocd extendedglob nomatch menucomplete

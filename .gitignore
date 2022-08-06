@@ -5,3 +5,5 @@
 .config/zsh/zsh
 .idea
 config/zsh/plugins
+wgcf-account.toml
+wgcf-profile.conf
