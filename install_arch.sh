@@ -12,7 +12,7 @@ if [ ! -d "$HOME/yay-git/" ]; then
 fi
 
 pacman_software="git make typescript xclip a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libxv wavpack x264 xvidcore fzf tmux zsh bat"
-yay_sofware="tmux google-chrome slack-desktop asdf-vm lazygit lazydocker neovim thefuck intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli spotify docker docker-compose authy"
+yay_sofware="tmux google-chrome slack-desktop asdf-vm lazygit lazydocker neovim thefuck intellij-idea-community-edition gnome-terminal-transparency extension-manager pgcli spotify docker docker-compose authy github-cli k9s"
 
 echo "installing $pacman_software with pacman"
 sudo pacman -Sy $pacman_software
