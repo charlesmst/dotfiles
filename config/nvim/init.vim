@@ -24,6 +24,7 @@ set smartcase
 set ignorecase
 set relativenumber
 set mouse=a
+set noswapfile
 filetype plugin indent on
 " show existing tab with 4 spaces width
 set tabstop=4
