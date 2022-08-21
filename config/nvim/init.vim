@@ -16,6 +16,7 @@ Plug 'preservim/nerdtree'
 " Plug 'Xuyuanp/nerdtree-git-plugin'
 Plug 'ryanoasis/vim-devicons'
 Plug 'tpope/vim-commentary'
+Plug 'christoomey/vim-tmux-navigator'
 
 call plug#end()
 
@@ -117,9 +118,3 @@ function! s:show_documentation()
     call CocAction('doHover')
   endif
 endfunction
-
-" nnoremat <leader>ff :lua require('telescope.builtin').find_files{ find_command = {'rg', '--files', '--hidden', '-g', '!node_modules/**'} }<CR>
-" search in git files
-" nnoremap <leader>fr <cmd>lua require('telescope.builtin').find_files{ cwd = vim.fn.systemlist("git rev-parse --show-toplevel")[1] }<cr>
-" search in git using git grepjjjk
-" nnoremap <leader>gr <cmd>lua require('telescope.builtin').live_grep{ cwd = vim.fn.systemlist("git rev-parse --show-toplevel")[1] }<cr>
