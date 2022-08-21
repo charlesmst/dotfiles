@@ -40,6 +40,10 @@ zsh_add_plugin "zsh-users/zsh-autosuggestions"
 zsh_add_plugin "zsh-users/zsh-syntax-highlighting"
 zsh_add_plugin "unixorn/fzf-zsh-plugin"
 
+# Fix vi mode copy not using system clipboard
+zsh_add_plugin "kutsan/zsh-system-clipboard"
+typeset -g ZSH_SYSTEM_CLIPBOARD_TMUX_SUPPORT='true'
+
 compinit
 
 zsh_add_file zsh_completions.zsh
