@@ -17,6 +17,7 @@ Plug 'preservim/nerdtree'
 Plug 'ryanoasis/vim-devicons'
 Plug 'tpope/vim-commentary'
 Plug 'christoomey/vim-tmux-navigator'
+Plug 'tpope/vim-surround'
 
 call plug#end()
 
