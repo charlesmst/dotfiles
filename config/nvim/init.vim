@@ -18,6 +18,7 @@ Plug 'ryanoasis/vim-devicons'
 Plug 'tpope/vim-commentary'
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'tpope/vim-surround'
+Plug 'nvim-lualine/lualine.nvim'
 
 call plug#end()
 
@@ -115,3 +116,6 @@ function! s:show_documentation()
     call CocAction('doHover')
   endif
 endfunction
+lua << END
+require('lualine').setup()
+END
