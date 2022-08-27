@@ -13,7 +13,7 @@ require "paq"{
     "ryanoasis/vim-devicons";
     "tpope/vim-commentary";
     "christoomey/vim-tmux-navigator";
-
+    "nvim-lualine/lualine.nvim";
 }
 
 vim.o.mouse = "a"
@@ -32,3 +32,12 @@ vim.g.mapleader = " "
 
 api.nvim_command [[ colorscheme gruvbox-baby]]
 api.nvim_command [[ colorscheme NeoSolarized]]
+
+
+vim.api.nvim_set_keymap('n', '<Leader>p', ':FZF<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<Leader>q', ':q<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<Leader>w', ':w<CR>', { noremap = true, silent = true })
+
+vim.api.nvim_set_keymap('n', '<Leader>e', ':w<CR>', { noremap = true, silent = true })
+
+require('lualine').setup()
