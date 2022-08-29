@@ -29,6 +29,7 @@ require('packer').startup(function(use)
   -- Fuzzy Finder Algorithm which requires local dependencies to be built. Only load if `make` is available
   use { 'nvim-telescope/telescope-fzf-native.nvim', run = 'make', cond = vim.fn.executable "make" == 1 }
   use { 'kyazdani42/nvim-tree.lua', requires = { 'kyazdani42/nvim-web-devicons' } }
+  use { 'kylechui/nvim-surround' }
   if is_bootstrap then
     require('packer').sync()
   end
@@ -394,5 +395,11 @@ cmp.setup {
 
 require("nvim-tree").setup()
 
-vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
-vim.keymap.set('n', '<space>e', "NvimTreeToggle")
+vim.keymap.set('n', '<leader>e', ":NvimTreeFindFileToggle<CR>")
+
+vim.keymap.set('n', '<leader>w', ":w<CR>")
+vim.keymap.set('n', '<leader>q', ":q<CR>")
+
+vim.keymap.set({'i', 'v'}, 'kj', "<esc>")
+
+require("nvim-surround").setup()
