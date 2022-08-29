@@ -33,6 +33,11 @@ require('packer').startup(function(use)
   use 'overcache/NeoSolarized'
   use 'christoomey/vim-tmux-navigator'
 
+  -- Debug
+  use { 'mfussenegger/nvim-dap' }
+  use { 'nvim-telescope/telescope-dap.nvim' }
+  use { 'mfussenegger/nvim-dap-python' } -- Python
+
   if is_bootstrap then
     require('packer').sync()
   end
@@ -401,3 +406,9 @@ vim.keymap.set({'i', 'v'}, 'kj', "<esc>")
 
 require("nvim-surround").setup()
 
+
+
+
+-- Debug config
+
+require("charles")

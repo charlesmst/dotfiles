@@ -9,8 +9,9 @@ ln -fs $(pwd)/.vimrc  $HOME/.vimrc
 ln -fs $(pwd)/.ideavimrc  $HOME/.ideavimrc
 
 if [ -d "$HOME/.config/nvim" ];then
-	ln -fs $(pwd)/config/nvim/init.vim $HOME/.config/nvim/init.vim
+	# ln -fs $(pwd)/config/nvim/init.vim $HOME/.config/nvim/init.vim
 	ln -fs $(pwd)/config/nvim/init.lua $HOME/.config/nvim/init.lua
+	ln -fs $(pwd)/config/nvim/lua $HOME/.config/nvim/lua
 	ln -fs $(pwd)/config/nvim/coc-settings.json $HOME/.config/nvim/coc-settings.json
 fi
 
