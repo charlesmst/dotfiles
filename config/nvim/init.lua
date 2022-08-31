@@ -38,6 +38,7 @@ require('packer').startup(function(use)
   use { 'nvim-telescope/telescope-dap.nvim' }
   use { 'mfussenegger/nvim-dap-python' } -- Python
 
+  use { 'aklt/plantuml-syntax' }
   if is_bootstrap then
     require('packer').sync()
   end
