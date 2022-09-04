@@ -399,6 +399,7 @@ cmp.setup {
 require("nvim-tree").setup({
   view = {
       adaptive_size = true,
+      centralize_selection = true,
   },
 
   update_focused_file = {
@@ -406,6 +407,10 @@ require("nvim-tree").setup({
     update_root = false,
     ignore_list = {},
   },
+
+  renderer = {
+    highlight_opened_files = "all",
+  }
 
 })
 
