@@ -396,7 +396,18 @@ cmp.setup {
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
 
-require("nvim-tree").setup()
+require("nvim-tree").setup({
+  view = {
+      adaptive_size = true,
+  },
+
+  update_focused_file = {
+    enable = true,
+    update_root = false,
+    ignore_list = {},
+  },
+
+})
 
 vim.keymap.set('n', '<leader>e', ":NvimTreeFindFileToggle<CR>")
 
