@@ -197,7 +197,7 @@ vim.keymap.set('n', '<leader>fd', require('telescope.builtin').diagnostics, { de
 -- See `:help nvim-treesitter`
 require('nvim-treesitter.configs').setup {
   -- Add languages to be installed here that you want installed for treesitter
-  ensure_installed = { 'lua', 'typescript', 'rust', 'go', 'python', 'java'},
+  ensure_installed = { 'lua', 'typescript', 'rust', 'go', 'python', 'java', 'swift'},
 
   highlight = { enable = true },
   indent = { enable = true },
@@ -308,7 +308,7 @@ end
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
 
 -- Enable the following language servers
-local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'sumneko_lua', 'gopls', 'jdtls', 'groovyls'}
+local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'sumneko_lua', 'gopls', 'jdtls', 'groovyls', 'sourcekit'}
 
 -- Ensure the servers above are installed
 require('nvim-lsp-installer').setup {
