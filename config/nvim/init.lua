@@ -39,6 +39,7 @@ require('packer').startup(function(use)
   use { 'mfussenegger/nvim-dap-python' } -- Python
 
   use { 'aklt/plantuml-syntax' }
+  use { "windwp/nvim-autopairs" }
   if is_bootstrap then
     require('packer').sync()
   end
@@ -429,3 +430,4 @@ require("nvim-surround").setup()
 -- Debug config
 
 require("charles")
+require("nvim-autopairs").setup {}
