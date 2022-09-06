@@ -36,7 +36,9 @@ require('packer').startup(function(use)
   -- Debug
   use { 'mfussenegger/nvim-dap' }
   use { 'nvim-telescope/telescope-dap.nvim' }
-  use { 'mfussenegger/nvim-dap-python' } -- Python
+  use { 'mfussenegger/nvim-dap-python' } 
+  use { 'leoluz/nvim-dap-go' }
+  use { "rcarriga/nvim-dap-ui", requires = {"mfussenegger/nvim-dap"} }
 
   use { 'aklt/plantuml-syntax' }
   use { "windwp/nvim-autopairs" }
