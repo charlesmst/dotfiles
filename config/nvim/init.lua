@@ -285,6 +285,8 @@ local on_attach = function(_, bufnr)
   nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
 
   nmap('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
+  nmap('<leader>F',vim.lsp.buf.formatting, 'Format code')
+
   nmap('gi', vim.lsp.buf.implementation, '[G]oto [I]mplementation')
   nmap('gr', require('telescope.builtin').lsp_references)
   nmap('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
@@ -423,6 +425,7 @@ vim.keymap.set('n', '<leader>w', ":w<CR>")
 vim.keymap.set('n', '<leader>q', ":q<CR>")
 
 vim.keymap.set({'i', 'v'}, 'kj', "<esc>")
+
 
 require("nvim-surround").setup()
 
