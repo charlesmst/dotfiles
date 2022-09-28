@@ -7,7 +7,7 @@
   "layout": "LAYOUT",
   "layers": [
     [
-      "KC_GRV",
+      "LT(3,KC_GRV)",
       "KC_1",
       "KC_2",
       "KC_3",
@@ -214,7 +214,7 @@
       "KC_TRNS",
       "KC_MS_L",
       "KC_MS_D",
-      "KC_MS_D",
+      "KC_MS_R",
       "KC_TRNS",
       "KC_TRNS",
       "KC_MS_L",

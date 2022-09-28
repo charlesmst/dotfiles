@@ -7,3 +7,4 @@
 config/zsh/plugins
 wgcf-account.toml
 wgcf-profile.conf
+lily58/keymap.c
