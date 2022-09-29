@@ -61,8 +61,8 @@
       "KC_LGUI",
       "MO(1)",
       "KC_SPC",
-      "KC_ENT",
-      "MO(2)",
+      "RSFT_T(KC_ENT)",
+      "LT(2,KC_BSPC)",
       "KC_RCTL",
       "KC_RALT"
     ],
