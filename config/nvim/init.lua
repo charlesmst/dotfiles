@@ -30,7 +30,7 @@ require('packer').startup(function(use)
   use 'lukas-reineke/indent-blankline.nvim'
   use { 'kyazdani42/nvim-tree.lua', requires = { 'kyazdani42/nvim-web-devicons' } }
   use { 'kylechui/nvim-surround' }
-  use 'overcache/NeoSolarized'
+  use 'folke/tokyonight.nvim'
   use 'christoomey/vim-tmux-navigator'
 
   -- Debug
@@ -97,7 +97,7 @@ vim.wo.signcolumn = 'yes'
 
 -- Set colorscheme
 vim.o.termguicolors = true
-vim.cmd [[colorscheme NeoSolarized]]
+vim.cmd [[colorscheme tokyonight-storm]]
 
 -- Set completeopt to have a better completion experience
 vim.o.completeopt = 'menuone,noselect'
@@ -118,7 +118,7 @@ vim.o.relativenumber = true
 vim.o.swapfile = false
 
 -- Keymaps for better default experience
--- See `:help vim.keymap.set()`
+-- See `:help vim.keymasadp.set()`
 vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
 
 -- Remap for dealing with word wrap
