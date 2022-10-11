@@ -4,6 +4,7 @@ set timeoutlen=1000
 
 set NERDTree
 set multiple-cursors
+set number
 set relativenumber
 set highlightedyank
 
