@@ -20,6 +20,10 @@ fi
 
 if ! tmux has-session -t=$selected_name 2> /dev/null; then
     tmux new-session -ds $selected_name -c $selected
+    tmux send-keys -t $selected_name:1 'nvim .' Enter
+    tmux new-window -t $selected_name:2 -n 'lg' -c $selected
+    tmux send-keys -t $selected_name:2 'lg' Enter
+    tmux new-window -t $selected_name:3 -n 'cmd' -c $selected
 fi
 
 tmux switch-client -t $selected_name
