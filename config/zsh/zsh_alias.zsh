@@ -19,7 +19,7 @@ function kclogs(){
     fi
     echo "selected pod $selected"
 
-    kubectl logs $selected -f
+    kubectl logs $selected -f --tail=500
 }
 
 
