@@ -62,3 +62,7 @@ else
 	zsh_add_file zsh_path_linux.zsh
 fi
 
+if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+	zsh_add_file zsh_wsl.zsh
+fi
+
