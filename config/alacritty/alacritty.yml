@@ -30,7 +30,7 @@ colors:
     cyan:    '0x0db9d7'
     white:   '0xacb0d0'
 window:
-  # opacity: 0.95
+  opacity: 0.9
   decorations: None
   padding:
     x: 4
@@ -78,6 +78,9 @@ font:
 scrolling:
   history: 1000
 
-# key_bindings:
-#   - { key: J, mods: Control, action: ScrollPageDown }
-#   - { key: K, mods: Control, action: ScrollPageUp }
+shell:
+  program: /bin/zsh
+  args:
+    - -l
+    - -c
+    - "tmux attach || tmux"
