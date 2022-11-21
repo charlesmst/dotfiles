@@ -8,6 +8,9 @@ ln -fs $(pwd)/config/zsh $HOME/.config/zsh
 ln -fs $(pwd)/.vimrc  $HOME/.vimrc
 ln -fs $(pwd)/.ideavimrc  $HOME/.ideavimrc
 
+mkdir -p ~/.config/alacritty
+ln -fs $(pwd)/config/alacritty/alacritty.yml $HOME/.config/alacritty/alacritty.yml
+
 if [ -d "$HOME/.config/nvim" ];then
 	# ln -fs $(pwd)/config/nvim/init.vim $HOME/.config/nvim/init.vim
 	ln -fs $(pwd)/config/nvim/init.lua $HOME/.config/nvim/init.lua
