@@ -30,7 +30,7 @@ colors:
     cyan:    '0x0db9d7'
     white:   '0xacb0d0'
 window:
-  opacity: 0.9
+  opacity: 0.93
   decorations: None
   padding:
     x: 4
@@ -73,7 +73,7 @@ font:
 
   bold_italic:
     family: monospace
-    style: Bold Italic
+    style: Boldtokyonight Italic
 
 scrolling:
   history: 1000
