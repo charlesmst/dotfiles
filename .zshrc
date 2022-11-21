@@ -5,7 +5,7 @@ export HISTFILE=$HOME/.zsh_history
 HISTSIZE=1000
 SAVEHIST=1000
 setopt appendhistory
-export FZF_DEFAULT_COMMAND="find . -type f -not -path .git   -not -path \"*/bin/*\" -not -path \"*/build/*\" -not -path \"*/node_modules/*\" -prune"
+export FZF_DEFAULT_COMMAND="find . -type f -not -path .git   -not -path \"\*/bin/\*\" -not -path \"\*/build/\*\" -not -path \"\*/node_modules/\*\" -prune"
 
 setopt autocd extendedglob nomatch menucomplete
 setopt interactive_comments
