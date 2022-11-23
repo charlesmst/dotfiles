@@ -19,6 +19,9 @@ set smartcase
 set ignorecase
 set clipboard+=unnamedplus
 set expandtab
+set visualbell
+set noerrorbells
+
 nmap <leader>fb <Action>(RecentFiles)
 nmap <leader>fg <Action>(FindInPath)
 nmap <leader>z <Action>(ToggleDistractionFreeMode)
