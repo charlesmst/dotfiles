@@ -51,8 +51,8 @@ live_config_reload: true
 
 font:
   normal:
-    family: "DejaVuSansMono Nerd Font"
-    style: Book
+    family: "monospace"
+    style: Regular
   size: 12.0
   offset:
     x: 0
@@ -64,16 +64,16 @@ font:
   draw_bold_text_with_bright_colors: true
 
   bold:
-    family: "DejaVuSansMono Nerd Font"
+    family: "monospace"
     style: Bold
 
   italic:
-    family: "DejaVuSansMono Nerd Font"
-    style: Oblique
+    family: "monospace"
+    style: Italic
 
   bold_italic:
-    family: "DejaVuSansMono Nerd Font"
-    style: Bold Oblique
+    family: "monospace"
+    style: Italic Bold
 
 scrolling:
   history: 1000
