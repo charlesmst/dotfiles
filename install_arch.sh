@@ -58,6 +58,8 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 '["<Shift><Alt>2"]'
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Shift><Alt>1"]'
 
+	gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['f2', 'XF86Keyboard']"
+
 	# pop os shell
 	if [ ! -d "$HOME/shell/" ]; then
 		cd ~/
