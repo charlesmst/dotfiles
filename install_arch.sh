@@ -59,6 +59,7 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Shift><Alt>1"]'
 
 	gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['f2', 'XF86Keyboard']"
+	gsettings set org.gnome.shell.keybindings toggle-application-view "['<Super>space']"
 
 	# pop os shell
 	if [ ! -d "$HOME/shell/" ]; then
