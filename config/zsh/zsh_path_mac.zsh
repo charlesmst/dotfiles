@@ -7,3 +7,6 @@ fi
 . /opt/homebrew/opt/asdf/asdf.sh
 
 export IDEA=/Applications/IntelliJ\ IDEA\ CE.app/Contents/MacOS/idea
+
+# rancher desktop
+export PATH="$HOME/.rd/bin:$PATH"
