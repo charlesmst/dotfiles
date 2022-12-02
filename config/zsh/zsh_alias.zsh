@@ -9,7 +9,7 @@ alias ld="lazydocker"
 alias ls="ls --color"
 alias ts="~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 alias history="history 1"
-alias fdocker="docker kill $(docker ps -qa) ; docker rm $(docker ps -qa)"
+alias fdocker="docker kill \$(docker ps -qa) ; docker rm \$(docker ps -qa)"
 
 function kclogs(){
     if [[ -z "$1" ]]; then
