@@ -57,10 +57,8 @@ nnoremap ,t :action ActivateRunToolWindow<CR>
 nnoremap ,u :action Rerun<CR>
 
 
-nnoremap [m :action MethodUp<CR>
-nnoremap ]m :action MethodDown<CR>
-onoremap [m :action MethodUp<CR>
-onoremap ]m :action MethodDown<CR>
+nnoremap <leader>k :action MethodUp<CR>
+nnoremap <leader>j :action MethodDown<CR>
 
 map <C-D> <C-D>zz
 map <C-U> <C-U>zz
