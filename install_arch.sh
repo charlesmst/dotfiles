@@ -44,6 +44,7 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	bash -c "$(curl -fsSL "https://raw.githubusercontent.com/felipecassiors/dotfiles/master/scripts/enable_chrome_dark_mode.sh")"
 
 	# change gnome settings for multiple workspaces
+	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-9 '["<Control><Shift><Alt>9"]'
 	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-8 '["<Control><Shift><Alt>8"]'
 	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-7 '["<Control><Shift><Alt>7"]'
 	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-6 '["<Control><Shift><Alt>6"]'
@@ -53,6 +54,7 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-2 '["<Control><Shift><Alt>2"]'
 	gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-1 '["<Control><Shift><Alt>1"]'
 
+	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-9 '["<Shift><Alt>9"]'
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-8 '["<Shift><Alt>8"]'
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-7 '["<Shift><Alt>7"]'
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-6 '["<Shift><Alt>6"]'
@@ -62,7 +64,7 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 '["<Shift><Alt>2"]'
 	gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 '["<Shift><Alt>1"]'
 
-	gsettings set org.gnome.desktop.wm.preferences num-workspaces '8'
+	gsettings set org.gnome.desktop.wm.preferences num-workspaces '9'
 
 	gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['f2', 'XF86Keyboard']"
 	gsettings set org.gnome.shell.keybindings toggle-application-view "['<Super>space']"
