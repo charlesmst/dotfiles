@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Terminal=true
+Name=Set audio to Dac
+Exec=/home/charlesstein/personal/dotfiles/utilities/set-audio-output.sh "USB HIFI AUDIO Analog Stereo"

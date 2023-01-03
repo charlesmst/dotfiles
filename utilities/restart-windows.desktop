@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Terminal=true
+Icon=/home/charlesstein/personal/dotfiles/utilities/icons8-windows-10-48.png
+Name=Restart on windows
+Exec=/home/charlesstein/personal/dotfiles/utilities/restart-on-windows.sh
+

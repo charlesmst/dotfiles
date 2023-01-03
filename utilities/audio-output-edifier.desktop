@@ -1,0 +1,7 @@
+
+[Desktop Entry]
+Type=Application
+Terminal=true
+Name=Set audio to Edifier
+Exec=/home/charlesstein/personal/dotfiles/utilities/set-audio-output.sh "Matisse HD Audio Controller Analog"
+
