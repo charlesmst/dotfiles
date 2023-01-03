@@ -67,7 +67,7 @@ if [ -n "$DESKTOP_SESSION" ]; then
 	gsettings set org.gnome.desktop.wm.preferences num-workspaces '9'
 
 	gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['f2', 'XF86Keyboard']"
-	gsettings set org.gnome.shell.keybindings toggle-application-view "['<Super>space']"
+	# gsettings set org.gnome.shell.keybindings toggle-application-view "['<Super>space']"
 
 	# pop os shell
 	if [ ! -d "$HOME/shell/" ]; then
