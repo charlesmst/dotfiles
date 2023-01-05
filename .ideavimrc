@@ -55,6 +55,7 @@ nnoremap ,c :action RunClass<CR>
 nnoremap ,f :action ChooseRunConfiguration<CR>
 nnoremap ,t :action ActivateRunToolWindow<CR>
 nnoremap ,u :action Rerun<CR>
+nnoremap <leader>gr :action ExternalSystem.ProjectRefreshAction<CR>
 
 
 nnoremap <leader>k :action MethodUp<CR>
