@@ -447,3 +447,4 @@ bind-key -T copy-mode-vi 'C-k' select-pane -U
 bind-key -T copy-mode-vi 'C-l' select-pane -R
 bind-key -T copy-mode-vi 'C-\' select-pane -l
 
+set -g @resurrect-processes 'vi vim nvim emacs man less more tail top htop irssi weechat mutt ssh psql lg lazygit docker-compose'

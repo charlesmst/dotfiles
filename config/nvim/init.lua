@@ -42,6 +42,8 @@ require('packer').startup(function(use)
 
   use { 'aklt/plantuml-syntax' }
   use { "windwp/nvim-autopairs" }
+  use { 'tpope/vim-obsession'}
+
   if is_bootstrap then
     require('packer').sync()
   end
