@@ -12,6 +12,7 @@ asdf plugin-add tflint https://github.com/skyzyx/asdf-tflint || true
 asdf plugin-add golang https://github.com/kennyp/asdf-golang.git || true
 asdf plugin-add java https://github.com/halcyon/asdf-java.git || true
 asdf plugin-add rust https://github.com/code-lever/asdf-rust.git || true
+asdf plugin-add redis https://github.com/smashedtoatoms/asdf-redis.git || true
 
 asdf install kubectl 1.24.3
 asdf install helm latest 2.14.3
@@ -23,6 +24,7 @@ asdf install tflint 0.23.1
 asdf install golang 1.18.3
 asdf install java openjdk-17.0.2
 asdf install rust 1.63.0
+asdf install redis 7.0.8
 
 asdf global kubectl 1.24.3
 asdf global helm 2.14.3
@@ -34,3 +36,4 @@ asdf global tflint 0.23.1
 asdf global golang 1.18.3
 asdf global java openjdk-17.0.2
 asdf global rust 1.63.0
+asdf global redis 7.0.8
