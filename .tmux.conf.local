@@ -396,7 +396,7 @@ set -g @plugin 'sainnhe/tmux-fzf'
 
 set -g @continuum-restore 'on'
 
-bind-key -n "C-p" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh attach"
+bind-key -n "C-p" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh switch"
 bind-key -n "C-t" switch-client -l
 # -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
