@@ -16,8 +16,16 @@ require('packer').startup(function(use)
   use 'numToStr/Comment.nvim'                                                     -- "gc" to comment visual regions/lines
   use 'nvim-treesitter/nvim-treesitter'                                           -- Highlight, edit, and navigate code
   use 'nvim-treesitter/nvim-treesitter-textobjects'                               -- Additional textobjects for treesitter
-  use 'neovim/nvim-lspconfig'                                                     -- Collection of configurations for built-in LSP client
-  use 'williamboman/nvim-lsp-installer'                                           -- Automatically install language servers to stdpath
+  -- use 'neovim/nvim-lspconfig'                                                     -- Collection of configurations for built-in LSP client
+  -- use 'williamboman/nvim-lsp-installer'                                           -- Automatically install language servers to stdpath
+  --
+  --
+  -- MASON
+  use {
+    "williamboman/mason.nvim",
+    "williamboman/mason-lspconfig.nvim",
+    "neovim/nvim-lspconfig",
+  }
   use { 'hrsh7th/nvim-cmp', requires = { 'hrsh7th/cmp-nvim-lsp' } }               -- Autocompletion
   use { 'L3MON4D3/LuaSnip', requires = { 'saadparwaiz1/cmp_luasnip' } }           -- Snippet Engine and Snippet Expansion
   use 'nvim-lualine/lualine.nvim'                                                 -- Fancier statusline
@@ -109,7 +117,7 @@ vim.o.completeopt = 'menuone,noselect'
 --  NOTE: Must happen before plugins are required (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
-
+vim.g.nvim_tree_respect_buf_cwd = 1
 vim.o.incsearch = true
 vim.o.clipboard = "unnamedplus"
 vim.o.hidden = true

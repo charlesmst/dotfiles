@@ -1,5 +1,6 @@
 require("charles.dap")
 require("charles.tokyonight")
 require("charles.tree")
-require("charles.lsp")
+-- require("charles.lsp")
+require("charles.mason")
 require("charles.keymap")
