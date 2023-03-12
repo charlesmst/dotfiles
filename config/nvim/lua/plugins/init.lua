@@ -1,8 +1,6 @@
 return {
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',                                                        
-  { 'lewis6991/gitsigns.nvim', dependencies = { 'nvim-lua/plenary.nvim' } },
-  'numToStr/Comment.nvim',
   'nvim-treesitter/nvim-treesitter',
   'nvim-treesitter/nvim-treesitter-textobjects',
   {
