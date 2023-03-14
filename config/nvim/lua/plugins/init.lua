@@ -1,8 +1,6 @@
 return {
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',                                                        
-  'nvim-treesitter/nvim-treesitter',
-  'nvim-treesitter/nvim-treesitter-textobjects',
   {
     "williamboman/mason.nvim",
     "williamboman/mason-lspconfig.nvim",
