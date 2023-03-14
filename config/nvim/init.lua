@@ -72,7 +72,6 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   pattern = '*',
 })
 
-require("nvim-surround").setup()
 
 require("charles")
 require("nvim-autopairs").setup {}
