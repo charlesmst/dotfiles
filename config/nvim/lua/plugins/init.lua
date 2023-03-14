@@ -11,7 +11,6 @@ return {
    'tpope/vim-sleuth',
 
    'lukas-reineke/indent-blankline.nvim',
-   { 'kyazdani42/nvim-tree.lua', dependencies = { 'kyazdani42/nvim-web-devicons' } },
    'folke/tokyonight.nvim',
    'christoomey/vim-tmux-navigator',
 
