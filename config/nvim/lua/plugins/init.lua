@@ -23,7 +23,6 @@ return {
    { "rcarriga/nvim-dap-ui", dependencies = {"mfussenegger/nvim-dap"} },
 
    { 'aklt/plantuml-syntax' },
-   { "windwp/nvim-autopairs" },
    { 'tpope/vim-obsession'}
 
   }

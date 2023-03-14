@@ -74,4 +74,3 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 
 require("charles")
-require("nvim-autopairs").setup {}
