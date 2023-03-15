@@ -1,6 +1,9 @@
 return {
  'nvim-telescope/telescope.nvim',
-  dependencies = { 'nvim-lua/plenary.nvim' },
+  dependencies = { 
+    'nvim-lua/plenary.nvim',
+    {'nvim-telescope/telescope-fzf-native.nvim', build = 'make'}
+  },
   config = function()
     -- [[ Configure Telescope ]]
     -- See `:help telescope` and `:help telescope.setup()`
@@ -16,7 +19,7 @@ return {
     }
 
     -- Enable telescope fzf native, if installed
-    -- pcall(require('telescope').load_extension, 'fzf')
+    pcall(require('telescope').load_extension, 'fzf')
 
   end
 }
