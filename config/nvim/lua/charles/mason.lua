@@ -1,5 +1,5 @@
 
-local servers = { 'clangd', 'rust_analyzer', 'pyright', 'lua_ls', 'tsserver', 'gopls', 'jdtls', 'groovyls'}
+local servers = { 'clangd', 'rust_analyzer', 'pyright', 'lua_ls', 'tsserver', 'gopls', 'jdtls', 'groovyls','phpactor'}
 
 local on_attach = function(_, bufnr)
   -- NOTE: Remember that lua is a real programming language, and as such it is possible

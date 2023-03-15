@@ -48,7 +48,7 @@ end
 local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol)
 
 -- Enable the following language servers
-local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls', 'groovyls', 'dartls'}
+local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls', 'groovyls', 'dartls', 'phpactor'}
 
 -- Ensure the servers above are installed
 require('nvim-lsp-installer').setup {
