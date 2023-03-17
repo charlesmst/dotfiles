@@ -80,7 +80,7 @@ return {
         }
       end,
 
-     -- disable java, too much memory usage by default 
+      -- disable java, too much memory usage by default
       ["jdtls"] = function()
         require("lspconfig")["jdtls"].setup {
           on_attach = on_attach,
@@ -94,6 +94,11 @@ return {
           on_attach = on_attach,
           autostart = true,
           capabilities = capabilities,
+          settings = {
+            Lua = {
+              diagnostics = { globals = { 'vim' } }
+            }
+          }
         }
       end,
     }
@@ -103,7 +108,7 @@ return {
         -- Opt to list sources here, when available in mason.
       },
       automatic_installation = false,
-      automatic_setup = true, 
+      automatic_setup = true,
     })
     require("null-ls").setup({
       sources = {
