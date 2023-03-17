@@ -44,7 +44,6 @@ vim.o.termguicolors = true
 vim.o.completeopt = 'menuone,noselect'
 
 vim.g.maplocalleader = ' '
--- vim.g.nvim_tree_respect_buf_cwd = 1
 vim.o.incsearch = true
 vim.o.clipboard = "unnamedplus"
 vim.o.hidden = true
