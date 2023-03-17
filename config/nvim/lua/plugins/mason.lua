@@ -31,7 +31,7 @@ return {
       end
 
       nmap('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
-      nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+      nmap('<leader>s', vim.lsp.buf.code_action, '[S]uggestion')
 
       nmap('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
       nmap('<leader>F', vim.lsp.buf.formatting, 'Format code')
