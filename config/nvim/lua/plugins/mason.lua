@@ -5,7 +5,7 @@ return {
         "neovim/nvim-lspconfig",
     },
     config = function()
-        local servers = { 'clangd', 'rust_analyzer', 'pyright', 'lua_ls', 'tsserver', 'gopls', 'jdtls', 'groovyls','phpactor'}
+        local servers = { 'clangd', 'rust_analyzer', 'pyright',  'tsserver', 'gopls', 'jdtls', 'groovyls'}
 
         local on_attach = function(_, bufnr)
           -- NOTE: Remember that lua is a real programming language, and as such it is possible
@@ -50,14 +50,14 @@ return {
           vim.api.nvim_buf_create_user_command(bufnr, 'Format', vim.lsp.buf.format or vim.lsp.buf.formatting, { desc = 'Format current buffer with LSP' })
         end
 
-        local lspconfig = require('lspconfig')
+      local lspconfig = require('lspconfig')
 
-        for _, lsp in ipairs(servers) do
-          require('lspconfig')[lsp].setup {
-            on_attach = on_attach,
-            autostart = false
-          }
-        end
+      -- for _, lsp in ipairs(servers) do
+      --   require('lspconfig')[lsp].setup {
+      --     on_attach = on_attach,
+      --     autostart = false
+      --   }
+      -- end
 
         local lsp_defaults = lspconfig.util.default_config
 
@@ -71,6 +71,18 @@ return {
         require("mason").setup()
         require("mason-lspconfig").setup {
             ensure_installed = servers,
+        }
+
+        require("mason-lspconfig").setup_handlers {
+            -- The first entry (without a key) will be the default handler
+            -- and will be called for each installed server that doesn't have
+            -- a dedicated handler.
+            function (server_name) -- default handler (optional)
+                require("lspconfig")[server_name].setup {
+                  on_attach = on_attach,
+                  autostart = false
+                }
+            end
         }
 
         -- nvim-cmp setup
