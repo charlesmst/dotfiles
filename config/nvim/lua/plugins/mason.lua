@@ -10,6 +10,7 @@ return {
 
     "jay-babu/mason-null-ls.nvim",
     "jose-elias-alvarez/null-ls.nvim",
+    'folke/neodev.nvim',
   },
   config = function()
     local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls' }
@@ -74,7 +75,7 @@ return {
       function(server_name) -- default handler (optional)
         require("lspconfig")[server_name].setup {
           on_attach = on_attach,
-          autostart = true,
+          autostart = false,
           capabilities = capabilities,
         }
       end,
@@ -86,19 +87,26 @@ return {
           autostart = false,
           capabilities = capabilities,
         }
-      end
-    }
+      end,
 
+      ["lua_ls"] = function()
+        require("lspconfig")["lua_ls"].setup {
+          on_attach = on_attach,
+          autostart = true,
+          capabilities = capabilities,
+        }
+      end,
+    }
+    -- require('neodev').setup()
     require("mason-null-ls").setup({
       ensure_installed = {
         -- Opt to list sources here, when available in mason.
       },
       automatic_installation = false,
-      automatic_setup = true, -- Recommended, but optional
+      automatic_setup = true, 
     })
     require("null-ls").setup({
       sources = {
-        -- Anything not supported by mason.
       }
     })
 
