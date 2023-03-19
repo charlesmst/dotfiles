@@ -10,7 +10,7 @@ return {
     -- See `:help nvim-treesitter`
     require('nvim-treesitter.configs').setup {
       -- Add languages to be installed here that you want installed for treesitter
-      ensure_installed = { 'lua', 'typescript', 'rust', 'go', 'python', 'java', 'swift', 'hcl', 'dart', 'c', 'terraform',
+      ensure_installed = {  'typescript', 'rust', 'go', 'python', 'java', 'swift', 'hcl', 'dart', 'c', 'terraform',
         'cue', 'php', 'html' },
 
       highlight = { enable = true },
