@@ -1,8 +1,8 @@
 return {
- 'nvim-telescope/telescope.nvim',
-  dependencies = { 
+  'nvim-telescope/telescope.nvim',
+  dependencies = {
     'nvim-lua/plenary.nvim',
-    {'nvim-telescope/telescope-fzf-native.nvim', build = 'make'}
+    { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' }
   },
   config = function()
     -- [[ Configure Telescope ]]
@@ -38,6 +38,5 @@ return {
     vim.keymap.set('n', '<leader>fw', require('telescope.builtin').grep_string, { desc = '[S]earch current [W]ord' })
     vim.keymap.set('n', '<leader>fg', require('telescope.builtin').live_grep, { desc = '[S]earch by [G]rep' })
     vim.keymap.set('n', '<leader>fd', require('telescope.builtin').diagnostics, { desc = '[S]earch [D]iagnostics' })
-
   end
 }
