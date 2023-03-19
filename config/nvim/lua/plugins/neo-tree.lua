@@ -250,6 +250,6 @@ return {
       }
     })
 
-    vim.cmd([[nnoremap \ :Neotree reveal<cr>]])
+    vim.cmd([[nnoremap <leader>e :Neotree toggle<cr>]])
   end
 }
