@@ -11,6 +11,7 @@ return {
     "jay-babu/mason-null-ls.nvim",
     "jose-elias-alvarez/null-ls.nvim",
     'folke/neodev.nvim',
+    "jay-babu/mason-nvim-dap.nvim",
   },
   config = function()
     local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls' }
@@ -117,6 +118,10 @@ return {
 
     require 'mason-null-ls'.setup_handlers()
 
+    require("mason-nvim-dap").setup({
+      automatic_setup = true,
+    })
+    require 'mason-nvim-dap'.setup_handlers {}
     -- nvim-cmp setup
     local cmp = require 'cmp'
     local luasnip = require 'luasnip'
