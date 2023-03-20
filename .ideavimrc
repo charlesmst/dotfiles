@@ -29,6 +29,7 @@ nmap <leader>z <Action>(ToggleDistractionFreeMode)
 :map <leader>e :NERDTreeFocus<CR>
 nmap <leader>q <Action>(CloseEditor)
 # nmap <leader>r <Action>(RenameElement)
+nmap <leader><leader> <Action>(RecentFiles)
 nmap <leader>F <Action>(ReformatCode)
 nmap <leader>i <Action>(Generate)
 nnoremap gcc :action CommentByLineComment<CR>
