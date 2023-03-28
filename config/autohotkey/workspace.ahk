@@ -71,7 +71,19 @@ MoveOrGotoDesktopNumber(num) {
     if (GetKeyState("LButton")) {
         MoveCurrentWindowToDesktop(num)
     } else {
-        GoToDesktopNumber(num)
+
+        global GetCurrentDesktopNumberProc, GoToDesktopNumberProc
+        CurrentDesktop := DllCall(GetCurrentDesktopNumberProc, "Int")
+        if(CurrentDesktop == num){
+            return
+        }
+        if (CurrentDesktop < num){
+            GoToDesktopNumber(num - 1)
+            Send ^#{Right}
+        }else{
+            GoToDesktopNumber(num + 1)
+            Send ^#{Left}
+        }
     }
     return
 }
@@ -143,6 +155,47 @@ OnChangeDesktop(wParam, lParam, msg, hwnd) {
 !+6:: MoveOrGotoDesktopNumber(5)
 !+7:: MoveOrGotoDesktopNumber(6)
 !+8:: MoveOrGotoDesktopNumber(7)
-!+9:: MoveOrGotoDesktopNumber(8)
+; !+9:: MoveOrGotoDesktopNumber(8)
 
 
+Test(){
+    DetectHiddenWindows, On
+
+    WinGet, id, List,,, Program Manager
+    Loop %id%
+    {
+            this_id := id%A_Index%
+            WinGetTitle, title, ahk_id %this_id%
+            If (title = "")
+                    continue
+            WinGet, Style, Style, ahk_id %this_id%
+            if !(Style & 0x10000000)	; WS_VISIBLE
+                    continue
+            wins .= title ? title "`n" : ""
+
+            WinGet, activeHwnd, ID, ahk_id %this_id%
+            test:= DllCall(IsWindowOnCurrentVirtualDesktopProc, "Ptr", activeHwnd, "Int")
+            wins .= test
+
+            OutputDebug % "Test  " test 
+    }
+    MsgBox, %wins%
+}
+
+!+9:: Test()
+
+
+
+
+; focus window asking for attention
+; Register shell hook to detect flashing windows.
+DllCall("RegisterShellHookWindow", "Ptr",A_ScriptHwnd)
+OnMessage(DllCall("RegisterWindowMessage", "Str","SHELLHOOK"), "ShellEvent")
+;...
+
+ShellEvent(wParam, lParam) {
+    If (wParam = 0x8006) ; HSHELL_FLASH
+    {   ; lParam contains the ID of the window which flashed:
+        WinActivate, ahk_id %lParam%
+    }
+}
