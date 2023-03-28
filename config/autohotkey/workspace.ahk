@@ -110,9 +110,7 @@ SetDesktopName(num, name) {
     return ran
 }
 CreateDesktop() {
-    global CreateDesktopProc
-    ran := DllCall(CreateDesktopProc)
-    return ran
+    Send, #^d
 }
 RemoveDesktop(remove_desktop_number, fallback_desktop_number) {
     global RemoveDesktopProc
@@ -122,6 +120,25 @@ RemoveDesktop(remove_desktop_number, fallback_desktop_number) {
 
 SetDesktopName(0, "Browser")
 SetDesktopName(3, "Terminal")
+
+ensureWorkspace()
+
+MoveOrGotoDesktopNumber(0)
+; ensure workspaces created
+ensureWorkspace(){
+    
+    Desired := 9
+    necessary := Desired - GetDesktopCount() 
+
+    i := 0
+    while(i < necessary){
+
+        OutputDebug % "Creating workspace" 
+        Send, #^d
+        i := i + 1
+    }
+
+}
 
 ; How to listen to desktop changes
 DllCall(RegisterPostMessageHookProc, "Ptr", A_ScriptHwnd, "Int", 0x1400 + 30, "Int")
@@ -199,3 +216,4 @@ ShellEvent(wParam, lParam) {
         WinActivate, ahk_id %lParam%
     }
 }
+
