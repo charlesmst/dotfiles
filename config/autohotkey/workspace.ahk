@@ -72,18 +72,19 @@ MoveOrGotoDesktopNumber(num) {
         MoveCurrentWindowToDesktop(num)
     } else {
 
-        global GetCurrentDesktopNumberProc, GoToDesktopNumberProc
-        CurrentDesktop := DllCall(GetCurrentDesktopNumberProc, "Int")
-        if(CurrentDesktop == num){
-            return
-        }
-        if (CurrentDesktop < num){
-            GoToDesktopNumber(num - 1)
-            Send ^#{Right}
-        }else{
-            GoToDesktopNumber(num + 1)
-            Send ^#{Left}
-        }
+        GoToDesktopNumber(num)
+        ; global GetCurrentDesktopNumberProc, GoToDesktopNumberProc
+        ; CurrentDesktop := DllCall(GetCurrentDesktopNumberProc, "Int")
+        ; if(CurrentDesktop == num){
+        ;     return
+        ; }
+        ; if (CurrentDesktop < num){
+        ;     GoToDesktopNumber(num - 1)
+        ;     Send ^#{Right}
+        ; }else{
+        ;     GoToDesktopNumber(num + 1)
+        ;     Send ^#{Left}
+        ; }
     }
     return
 }
@@ -124,6 +125,23 @@ SetDesktopName(3, "Terminal")
 ensureWorkspace()
 
 MoveOrGotoDesktopNumber(0)
+
+
+; focus window asking for attention
+; Register shell hook to detect flashing windows.
+DllCall("RegisterShellHookWindow", "Ptr",A_ScriptHwnd)
+OnMessage(DllCall("RegisterWindowMessage", "Str","SHELLHOOK"), "ShellEvent")
+;...
+
+ShellEvent(wParam, lParam) {
+    
+    OutputDebug % "Shell event  " wParam lParam 
+    If (wParam = 0x8006) ; HSHELL_FLASH
+    {   ; lParam contains the ID of the window which flashed:
+        WinActivate, ahk_id %lParam%
+    }
+}
+
 ; ensure workspaces created
 ensureWorkspace(){
     
@@ -202,18 +220,4 @@ Test(){
 !+9:: Test()
 
 
-
-
-; focus window asking for attention
-; Register shell hook to detect flashing windows.
-DllCall("RegisterShellHookWindow", "Ptr",A_ScriptHwnd)
-OnMessage(DllCall("RegisterWindowMessage", "Str","SHELLHOOK"), "ShellEvent")
-;...
-
-ShellEvent(wParam, lParam) {
-    If (wParam = 0x8006) ; HSHELL_FLASH
-    {   ; lParam contains the ID of the window which flashed:
-        WinActivate, ahk_id %lParam%
-    }
-}
 
