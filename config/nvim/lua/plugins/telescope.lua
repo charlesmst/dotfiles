@@ -13,6 +13,8 @@ return {
           i = {
             ['<C-u>'] = false,
             ['<C-d>'] = false,
+
+          ["<c-d>"] = "delete_buffer",
           },
         },
       },

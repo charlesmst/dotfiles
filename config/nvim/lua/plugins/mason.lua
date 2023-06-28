@@ -76,7 +76,7 @@ return {
       function(server_name) -- default handler (optional)
         require("lspconfig")[server_name].setup {
           on_attach = on_attach,
-          autostart = false,
+          autostart = true,
           capabilities = capabilities,
         }
       end,
