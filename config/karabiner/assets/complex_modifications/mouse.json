@@ -1,0 +1,95 @@
+
+{
+  "title": "Mouse Helper",
+  "url": "https://github.com/charlesmst/dotfiles",
+  "version": "1.0.0",
+  "maintainers": [
+    "Charles"
+  ],
+  "author": "Charles(charles.mst@gmail.com)",
+  "website": "http://localhost",
+  "json_url": "https://localhost/mouse.json",
+  "import_url": "karabiner://karabiner/assets/complex_modifications/import?url=https://localhost/mouse.json",
+  "gallery_url": "https://ke-complex-modifications.pqrs.org/#emulation-modes",
+  "repo": "https://github.com/charlesmst/dotfiles",
+  "rules": [
+    {
+      "description": "Mouse Mover",
+      "manipulators": [
+        {
+          "description": "mission control or move1",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button7"
+          },
+          "to": [
+            {
+              "key_code": "right_shift",
+              "modifiers": [
+                "right_command",
+                "right_control",
+                "right_option"
+              ]
+            }
+          ],
+          "to_if_alone": [
+            {
+              "key_code": "mission_control"
+            }
+          ]
+        },
+
+	{
+          "description": "w = button7 + button4",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button4",
+            "modifiers": {
+              "mandatory": [
+                "right_command",
+                "right_control",
+                "right_shift",
+                "right_option"
+              ]
+            }
+          },
+          "to": [
+            {
+              "key_code": "a",
+              "modifiers": [
+                "left_option",
+                "left_shift"
+              ]
+            }
+          ]
+        },
+
+	{
+          "description": "w = button7 + button5",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button5",
+            "modifiers": {
+              "mandatory": [
+                "right_command",
+                "right_control",
+                "right_shift",
+                "right_option"
+              ]
+            }
+          },
+          "to": [
+            {
+              "key_code": "d",
+              "modifiers": [
+                "left_option",
+                "left_shift"
+              ]
+            }
+          ]
+        }
+
+      ]
+    }
+  ]
+}

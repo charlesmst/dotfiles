@@ -21,6 +21,7 @@ fi
 if [ -d "$HOME/.config/karabiner/assets/complex_modifications/" ]; then
 	ln -fs $(pwd)/config/karabiner/assets/complex_modifications/capslock_charles.json  $HOME/.config/karabiner/assets/complex_modifications/capslock_charles.json
 	ln -fs $(pwd)/config/karabiner/assets/complex_modifications/ctrl_enchanced.json  $HOME/.config/karabiner/assets/complex_modifications/ctrl_enchanced.json
+	ln -fs $(pwd)/config/karabiner/assets/complex_modifications/mouse.json  $HOME/.config/karabiner/assets/complex_modifications/mouse.json
 
 fi
 
