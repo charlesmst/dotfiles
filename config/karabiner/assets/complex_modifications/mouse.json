@@ -87,6 +87,19 @@
               ]
             }
           ]
+        },
+
+	{
+          "description": "middle button",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button6"
+          },
+          "to": [
+            {
+              "pointing_button": "button3"
+            }
+          ]
         }
 
       ]
