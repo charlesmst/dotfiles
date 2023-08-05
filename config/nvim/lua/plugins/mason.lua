@@ -5,6 +5,7 @@ return {
     "neovim/nvim-lspconfig",
     'hrsh7th/nvim-cmp',
     'hrsh7th/cmp-nvim-lsp',
+    'hrsh7th/cmp-copilot',
     'L3MON4D3/LuaSnip',
     'saadparwaiz1/cmp_luasnip',
 
@@ -162,6 +163,7 @@ return {
       sources = {
         { name = 'nvim_lsp' },
         { name = 'luasnip' },
+        { name = 'copilot' }
       },
     }
   end
