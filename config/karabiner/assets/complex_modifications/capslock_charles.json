@@ -1006,6 +1006,110 @@
           ]
         },
 
+	{
+          "description": "7 = option + shift + 7",
+          "type": "basic",
+          "from": {
+            "key_code": "7",
+            "modifiers": {
+              "mandatory": [
+                "right_command",
+                "right_control",
+                "right_shift",
+                "right_option"
+              ]
+            }
+          },
+          "to_if_alone": [
+            {
+              "key_code": "7",
+              "modifiers": [
+                "left_option",
+                "left_shift"
+              ]
+            }
+          ],
+          "to_if_held_down": [
+            {
+              "key_code": "7",
+              "modifiers": [
+                "left_option",
+                "left_shift",
+		"left_control"
+              ]
+            }
+          ]
+        },
+
+	{
+          "description": "8 = option + shift + 8",
+          "type": "basic",
+          "from": {
+            "key_code": "8",
+            "modifiers": {
+              "mandatory": [
+                "right_command",
+                "right_control",
+                "right_shift",
+                "right_option"
+              ]
+            }
+          },
+          "to_if_alone": [
+            {
+              "key_code": "8",
+              "modifiers": [
+                "left_option",
+                "left_shift"
+              ]
+            }
+          ],
+          "to_if_held_down": [
+            {
+              "key_code": "8",
+              "modifiers": [
+                "left_option",
+                "left_shift",
+		"left_control"
+              ]
+            }
+          ]
+        },
+
+	{
+          "description": "9 = option + shift + 9",
+          "type": "basic",
+          "from": {
+            "key_code": "9",
+            "modifiers": {
+              "mandatory": [
+                "right_command",
+                "right_control",
+                "right_shift",
+                "right_option"
+              ]
+            }
+          },
+          "to_if_alone": [
+            {
+              "key_code": "9",
+              "modifiers": [
+                "left_option",
+                "left_shift"
+              ]
+            }
+          ],
+          "to_if_held_down": [
+            {
+              "key_code": "9",
+              "modifiers": [
+                "left_option",
+                "left_shift",
+		"left_control"
+              ]
+            }
+          ]
+        },
 
 	{
           "description": "a = option + shift + a",
@@ -1041,6 +1145,9 @@
             }
           ]
         },
+
+
+
 
 	{
           "description": "d = option + shift + d",
