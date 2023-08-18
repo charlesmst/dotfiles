@@ -31,14 +31,14 @@ colors:
     white:   '0xacb0d0'
 window:
   opacity: 0.93
-  decorations: None
+  decorations: Full
   padding:
     x: 4
     y: 4
   dynamic_padding: true
 
 mouse:
-  hide_when_typing: true
+  hide_when_typing: false
 
 selection:
   semantic_escape_chars: ',│`|:"'' ()[]{}<>'
@@ -49,11 +49,18 @@ cursor:
 
 live_config_reload: true
 
+
 font:
   normal:
-    family: "monospace"
+    family: FiraCode Nerd Font
+    style: Light
+  bold:
+    family: FiraCode Nerd Font
     style: Regular
-  size: 12.0
+  italic:
+    family: SauceCodePro Nerd Font Mono
+    style: Italic
+  size: 14.0
   offset:
     x: 0
     y: 0
@@ -61,19 +68,6 @@ font:
     x: 0
     y: 0
   AppleFontSmoothing: true
-  draw_bold_text_with_bright_colors: true
-
-  bold:
-    family: "monospace"
-    style: Bold
-
-  italic:
-    family: "monospace"
-    style: Italic
-
-  bold_italic:
-    family: "monospace"
-    style: Italic Bold
 
 scrolling:
   history: 1000
