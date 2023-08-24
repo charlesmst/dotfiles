@@ -31,7 +31,7 @@ colors:
     white:   '0xacb0d0'
 window:
   opacity: 0.93
-  decorations: Full
+  decorations: None
   padding:
     x: 4
     y: 4
@@ -58,9 +58,9 @@ font:
     family: FiraCode Nerd Font
     style: Regular
   italic:
-    family: SauceCodePro Nerd Font Mono
+    family: FiraCode Nerd Font
     style: Italic
-  size: 14.0
+  size: 12.0
   offset:
     x: 0
     y: 0
