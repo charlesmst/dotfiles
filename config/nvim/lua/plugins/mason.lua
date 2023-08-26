@@ -103,6 +103,18 @@ return {
           }
         }
       end,
+      ["rust_analyzer"] = function()
+        require("lspconfig")["rust_analyzer"].setup {
+          on_attach = on_attach,
+          autostart = true,
+          capabilities = capabilities,
+          settings = {
+            Lua = {
+              diagnostics = { globals = { 'vim' } }
+            }
+          }
+        }
+      end,
     }
     -- require('neodev').setup()
     require("mason-null-ls").setup({
@@ -126,6 +138,7 @@ return {
     -- nvim-cmp setup
     local cmp = require 'cmp'
     local luasnip = require 'luasnip'
+
 
     cmp.setup {
       snippet = {
