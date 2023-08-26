@@ -117,12 +117,12 @@ return {
       }
     })
 
-    require 'mason-null-ls'.setup_handlers()
+    -- require 'mason-null-ls'.setup_handlers()
 
     require("mason-nvim-dap").setup({
       automatic_setup = true,
     })
-    require 'mason-nvim-dap'.setup_handlers {}
+    -- require 'mason-nvim-dap'.setup_handlers {}
     -- nvim-cmp setup
     local cmp = require 'cmp'
     local luasnip = require 'luasnip'
