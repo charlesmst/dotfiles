@@ -78,7 +78,7 @@ vim.keymap.set('n', '<leader>w', ":w<CR>")
 vim.keymap.set('n', '<leader>q', ":q<CR>")
 vim.keymap.set({'i', 'v'}, 'kj', "<esc>")
 
-vim.keymap.set('n', '<leader>e', ":NvimTreeFindFileToggle<CR>")
+-- vim.keymap.set('n', '<leader>e', ":NvimTreeFindFileToggle<CR>")
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev)
