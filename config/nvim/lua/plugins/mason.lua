@@ -15,7 +15,7 @@ return {
     "jay-babu/mason-nvim-dap.nvim",
   },
   config = function()
-    local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls' }
+    local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls','lua_ls' }
 
     local on_attach = function(_, bufnr)
       -- NOTE: Remember that lua is a real programming language, and as such it is possible
@@ -36,7 +36,7 @@ return {
       nmap('<leader>s', vim.lsp.buf.code_action, '[S]uggestion')
 
       nmap('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
-      nmap('<leader>F', vim.lsp.buf.formatting, 'Format code')
+      nmap('<leader>F', vim.lsp.buf.format, 'Format code')
 
       nmap('gi', vim.lsp.buf.implementation, '[G]oto [I]mplementation')
       nmap('gr', require('telescope.builtin').lsp_references)
