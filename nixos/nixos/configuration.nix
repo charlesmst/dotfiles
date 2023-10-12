@@ -126,6 +126,36 @@
     git-credential-manager
     cargo
     rustc
+    kubectl
+
+    tree
+    wget
+    gnupg
+    curl
+    gnumake
+    unzip
+    vlc
+    xclip
+    lightlocker
+    gparted
+    uget
+    qtox
+    blueman
+    pavucontrol
+    pass
+    ghostscript
+    syncthing
+
+    ruby
+    sbcl
+    leiningen
+    sbt
+
+    openjdk
+    watchman
+
+    kubectl
+
   #  wget
   ];
 
