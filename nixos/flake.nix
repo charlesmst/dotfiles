@@ -32,7 +32,9 @@
 	      nixos = nixpkgs.lib.nixosSystem {
 		specialArgs = {inherit inputs outputs;};
 		# > Our main nixos configuration file <
-		modules = [./nixos/configuration.nix];
+		modules = [
+		  ./nixos/configuration.nix
+		];
 	      };
 	    };
       homeConfigurations."charles" = home-manager.lib.homeManagerConfiguration {
@@ -41,7 +43,10 @@
         extraSpecialArgs = {inherit inputs outputs;};
         # Specify your home configuration modules here, for example,
         # the path to your home.nix.
-        modules = [ ./home.nix ];
+        modules = [
+          ./home.nix
+          ./de.nix
+	];
 
       };
       environment.shells = with nixpkgs; [ zsh ];

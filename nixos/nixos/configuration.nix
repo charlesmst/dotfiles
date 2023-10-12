@@ -151,6 +151,7 @@
     openjdk
     watchman
     kubectl
+    ripgrep
 
     alacritty
 
