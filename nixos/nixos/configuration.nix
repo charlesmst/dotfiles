@@ -127,7 +127,6 @@
     cargo
     rustc
     kubectl
-
     tree
     wget
     gnupg
@@ -145,16 +144,15 @@
     pass
     ghostscript
     syncthing
-
     ruby
     sbcl
     leiningen
     sbt
-
     openjdk
     watchman
-
     kubectl
+
+    alacritty
 
   #  wget
   ];
@@ -206,4 +204,9 @@
       experimental-features = nix-command flakes
     '';
   };
+
+
+  fonts.packages = with pkgs; [
+    (nerdfonts.override { fonts = [ "FiraCode" "DroidSansMono" ]; })
+  ];
 }
