@@ -124,6 +124,8 @@
     gcc
     home-manager
     git-credential-manager
+    cargo
+    rustc
   #  wget
   ];
 

@@ -8,6 +8,11 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    ohMyTmux = {
+      url = "github:gpakosz/.tmux";
+      flake = false;
+    };
     dotfiles = {
       url = "path:///home/charles/personal/dotfiles";
       flake = false;

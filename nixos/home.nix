@@ -59,6 +59,13 @@
     ".config/zsh" = {
     	source = inputs.dotfiles + "/config/zsh";
     };
+
+    ".tmux.conf" = {
+    	source = inputs.ohMyTmux + "/.tmux.conf";
+    };
+    ".tmux.conf.local" = {
+    	source = inputs.dotfiles + "/.tmux.conf.local";
+    };
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose

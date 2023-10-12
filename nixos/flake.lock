@@ -49,11 +49,28 @@
         "type": "github"
       }
     },
+    "ohMyTmux": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1681567899,
+        "narHash": "sha256-LkoRWds7PHsteJCDvsBpZ80zvlLtFenLU3CPAxdEHYA=",
+        "owner": "gpakosz",
+        "repo": ".tmux",
+        "rev": "fd1bbb56148101f4b286ddafd98f2ac2dcd69cd8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "gpakosz",
+        "repo": ".tmux",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "dotfiles": "dotfiles",
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "ohMyTmux": "ohMyTmux"
       }
     }
   },
