@@ -60,7 +60,7 @@ font:
   italic:
     family: FiraCode Nerd Font
     style: Italic
-  size: 12.0
+  size: 16.0
   offset:
     x: 0
     y: 0
@@ -68,6 +68,7 @@ font:
     x: 0
     y: 0
   AppleFontSmoothing: true
+
 
 scrolling:
   history: 1000
