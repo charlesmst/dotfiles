@@ -3,8 +3,8 @@
     "dotfiles": {
       "flake": false,
       "locked": {
-        "lastModified": 1697898818,
-        "narHash": "sha256-W8CUKcI8xVRnPFQW/O9CiUNKDKK5TJ/yMGNB0IDSICY=",
+        "lastModified": 1697899588,
+        "narHash": "sha256-88voAIC+j8rHChMdiZVvg6joADixklo4sqiuoFyYwyk=",
         "path": "/home/charlesstein/personal/dotfiles",
         "type": "path"
       },

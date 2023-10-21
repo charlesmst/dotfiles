@@ -52,12 +52,6 @@
     	source = inputs.dotfiles + "/config/nvim/";
     	recursive = true;
     };
-    ".zshrc" = {
-    	source = inputs.dotfiles + "/.zshrc";
-    };
-    ".config/zsh" = {
-    	source = inputs.dotfiles + "/config/zsh";
-    };
     ".tmux.conf" = {
     	source = inputs.ohMyTmux + "/.tmux.conf";
     };
