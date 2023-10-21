@@ -146,6 +146,7 @@
     ripgrep
 
     alacritty
+    cloudflare-warp
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
