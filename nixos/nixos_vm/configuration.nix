@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib,inputs, system, ... }:
 
 {
   imports =
@@ -11,8 +11,9 @@
     ];
 
   # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.grub.enable = true;
+  boot.loader.grub.device = "/dev/vda";
+  boot.loader.grub.useOSProber = true;
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -52,11 +53,11 @@
   # Configure keymap in X11
   services.xserver = {
     layout = "us";
-    xkbVariant = "intl";
+    xkbVariant = "alt-intl";
   };
 
   # Configure console keymap
-  console.keyMap = "us-acentos";
+  console.keyMap = "dvorak";
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -92,14 +93,22 @@
     ];
   };
 
+  users.defaultUserShell = pkgs.zsh;
+
+  # Enable automatic login for the user.
+  services.xserver.displayManager.autoLogin.enable = true;
+  services.xserver.displayManager.autoLogin.user = "charlesstein";
+
+  # Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@tty1".enable = false;
+
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-  #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-  #  wget
     tmux
     fzf
     lazygit
@@ -145,16 +154,12 @@
     ripgrep
 
     alacritty
+
+  #  wget
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
-
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -168,6 +173,12 @@
       update = "sudo nixos-rebuild switch";
     };
   };
+  # programs.mtr.enable = true;
+  # programs.gnupg.agent = {
+  #   enable = true;
+  #   enableSSHSupport = true;
+  # };
+
   # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
@@ -187,6 +198,7 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "23.05"; # Did you read the comment?
 
+  #home.file.".config/nvim".source = "/home/charlesstein/personal/dotfiles/config/nvim";
   nix = {
     package = pkgs.nixFlakes;
     extraOptions = ''
