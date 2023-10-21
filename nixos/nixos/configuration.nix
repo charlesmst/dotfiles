@@ -148,6 +148,7 @@
     alacritty
     cloudflare-warp
     htop
+    spotify
   ];
 
   # Some programs need SUID wrappers, can be configured further or are

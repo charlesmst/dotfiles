@@ -95,9 +95,6 @@
   programs.gh = {
     enable = true;
   };
-  programs.zsh = {
-    enable = true; 
-  };
   programs.neovim.plugins = [
     pkgs.vimPlugins.nvim-treesitter.withAllGrammars
   ];

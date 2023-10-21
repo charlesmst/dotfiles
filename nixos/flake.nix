@@ -17,6 +17,11 @@
       url = "path:///home/charlesstein/personal/dotfiles";
       flake = false;
     };
+
+    zshautosuggestions = {
+      url = "github:zsh-users/zsh-autosuggestions";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, home-manager,  ... }@inputs: let
