@@ -22,9 +22,10 @@
       url = "github:zsh-users/zsh-autosuggestions";
       flake = false;
     };
+    lanzaboote.url = "github:nix-community/lanzaboote";
   };
 
-  outputs = { self, nixpkgs, home-manager,  ... }@inputs: let
+  outputs = { self, nixpkgs, home-manager,lanzaboote,  ... }@inputs: let
       inherit (self) outputs;
     in {
       nixosConfigurations = {
@@ -39,6 +40,8 @@
 		# > Our main nixos configuration file <
 		modules = [
 		  ./nixos/configuration.nix
+
+		  lanzaboote.nixosModules.lanzaboote
 		];
 	      };
 	    };
@@ -58,5 +61,6 @@
       environment.shells = with nixpkgs; [ zsh ];
       users.defaultUserShell = nixpkgs.zsh;
       users.users.charlesstein.shell = nixpkgs.zsh;
+
     };
 }
