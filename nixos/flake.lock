@@ -3,13 +3,13 @@
     "dotfiles": {
       "flake": false,
       "locked": {
-        "lastModified": 1697126693,
-        "narHash": "sha256-4TYPycYPE1FaQoFZOog09gc9ex0iU087UjA/5YskNE0=",
-        "path": "/home/charles/personal/dotfiles",
+        "lastModified": 1697857330,
+        "narHash": "sha256-PIZ/MX94GOFTWNZLpPsw+SOf00qvZw0Or4ewYkXCsbU=",
+        "path": "/home/charlesstein/personal/dotfiles",
         "type": "path"
       },
       "original": {
-        "path": "/home/charles/personal/dotfiles",
+        "path": "/home/charlesstein/personal/dotfiles",
         "type": "path"
       }
     },
