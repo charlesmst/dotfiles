@@ -3,8 +3,8 @@
 {
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
-  home.username = "charles";
-  home.homeDirectory = "/home/charles";
+  home.username = "charlesstein";
+  home.homeDirectory = "/home/charlesstein";
 
   # This value determines the Home Manager release that your configuration is
   # compatible with. This helps avoid breakage when a new Home Manager release
@@ -80,7 +80,7 @@
   #
   # or
   #
-  #  /etc/profiles/per-user/charles/etc/profile.d/hm-session-vars.sh
+  #  /etc/profiles/per-user/charlesstein/etc/profile.d/hm-session-vars.sh
   #
   # if you don't want to manage your shell through Home Manager.
   home.sessionVariables = {
@@ -92,7 +92,7 @@
   programs.home-manager.enable = true;
   programs.git = {
     enable = true;
-    userEmail = "charles.mst@gmail.com";
+    userEmail = "charlesstein.mst@gmail.com";
     userName = "Charles Stein";
     extraConfig.credential.helper = "store";
   };
