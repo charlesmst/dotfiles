@@ -1,5 +1,5 @@
 {
-  description = "Home Manager configuration of charles";
+  description = "Home Manager configuration of charlesstein";
 
   inputs = {
     # Specify the source of Home Manager and Nixpkgs.
@@ -14,7 +14,7 @@
       flake = false;
     };
     dotfiles = {
-      url = "path:///home/charles/personal/dotfiles";
+      url = "path:///home/charlesstein/personal/dotfiles";
       flake = false;
     };
   };
@@ -37,7 +37,7 @@
 		];
 	      };
 	    };
-      homeConfigurations."charles" = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations."charlesstein" = home-manager.lib.homeManagerConfiguration {
 
 	pkgs = nixpkgs.legacyPackages.x86_64-linux; # Home-manager requires 'pkgs' instance
         extraSpecialArgs = {inherit inputs outputs;};
@@ -51,6 +51,6 @@
       };
       environment.shells = with nixpkgs; [ zsh ];
       users.defaultUserShell = nixpkgs.zsh;
-      users.users.charles.shell = nixpkgs.zsh;
+      users.users.charlesstein.shell = nixpkgs.zsh;
     };
 }
