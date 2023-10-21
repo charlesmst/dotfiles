@@ -87,6 +87,7 @@
     isNormalUser = true;
     description = "charlesstein";
     extraGroups = [ "networkmanager" "wheel" ];
+    initialHashedPassword = "changeme123"
     packages = with pkgs; [
       firefox
     #  thunderbird
