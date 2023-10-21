@@ -86,7 +86,7 @@
     isNormalUser = true;
     description = "charlesstein";
     extraGroups = [ "networkmanager" "wheel" ];
-    shell = nixpkgs.zsh
+    shell = pkgs.zsh;
     packages = with pkgs; [
       firefox
     #  thunderbird
@@ -147,6 +147,7 @@
 
     alacritty
     cloudflare-warp
+    htop
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
