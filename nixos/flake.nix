@@ -46,6 +46,7 @@
         modules = [
           ./home.nix
           ./de.nix
+	  ./zsh.nix
 	];
 
       };
