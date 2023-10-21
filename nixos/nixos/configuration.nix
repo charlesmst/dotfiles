@@ -86,6 +86,7 @@
     isNormalUser = true;
     description = "charlesstein";
     extraGroups = [ "networkmanager" "wheel" ];
+    shell = nixpkgs.zsh
     packages = with pkgs; [
       firefox
     #  thunderbird
