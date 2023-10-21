@@ -149,6 +149,7 @@
     cloudflare-warp
     htop
     spotify
+    wl-clipboard
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
