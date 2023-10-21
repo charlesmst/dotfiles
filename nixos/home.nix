@@ -66,6 +66,9 @@
     ".tmux.conf.local" = {
     	source = inputs.dotfiles + "/.tmux.conf.local";
     };
+    ".config/alacritty/alacritty.yml" = {
+    	source = inputs.dotfiles + "/config/alacritty/alacritty.yml";
+    };
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
