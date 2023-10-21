@@ -158,6 +158,7 @@ boot = {
     htop
     spotify
     wl-clipboard
+    dconf2nix
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
