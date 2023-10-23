@@ -10,6 +10,7 @@ alias ls="ls --color"
 alias ts="~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 alias history="history 1"
 alias fdocker="docker kill \$(docker ps -qa) ; docker rm \$(docker ps -qa)"
+alias fshada="rm ~/.local/state/nvim/shada/*"
 
 function kclogs(){
     if [[ -z "$1" ]]; then
