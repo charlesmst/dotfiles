@@ -36,11 +36,19 @@
       };
 
       "org/gnome/desktop/wm/preferences" = {
-        num-workspaces = "9";
+        num-workspaces = 9;
       };
+
 
       "org/gnome/desktop/wm/keybindings" = {
         switch-input-source = [ "f2,XF86Keyboard" ];
+      };
+      "org/gnome/mutter" = {
+        dynamic-workspaces = "false";
+        workspaces-only-on-primary = true;
+      };
+      "org/gnome/shell/app-switcher" = {
+        current-workspace-only = true;
       };
    };
 }
