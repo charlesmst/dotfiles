@@ -93,7 +93,7 @@ boot = {
   users.users.charlesstein = {
     isNormalUser = true;
     description = "charlesstein";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "i2c" "docker"];
     shell = pkgs.zsh;
     packages = with pkgs; [
       firefox
@@ -159,6 +159,7 @@ boot = {
     spotify
     wl-clipboard
     dconf2nix
+    usbutils
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
