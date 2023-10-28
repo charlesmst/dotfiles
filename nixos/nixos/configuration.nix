@@ -150,6 +150,15 @@ boot = {
     jetbrains.idea-ultimate
     jetbrains.idea-community
     jetbrains.jdk
+    _1password
+    _1password-gui
+    zoom-us
+    brave
+    google-chrome
+    vscode-with-extensions
+    awscli2
+    saml2aws
+    postgresql_14
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
