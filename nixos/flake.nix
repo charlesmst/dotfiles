@@ -23,6 +23,7 @@
       flake = false;
     };
     lanzaboote.url = "github:nix-community/lanzaboote";
+    displaySwitch.url = "github:charlesmst/display-switch";
   };
 
   outputs = { self, nixpkgs, home-manager,lanzaboote,  ... }@inputs: let
@@ -55,6 +56,7 @@
           ./home.nix
           ./de.nix
 	  ./zsh.nix
+	  ./display-switch.nix
 	];
 
       };
