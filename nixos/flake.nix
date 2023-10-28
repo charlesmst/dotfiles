@@ -57,6 +57,7 @@
           ./home.nix
           ./de.nix
 	  ./zsh.nix
+	  ./display-switch-home.nix
 	];
 
       };
