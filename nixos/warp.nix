@@ -11,7 +11,7 @@
   services = {
     cloudflare-warp = {
       enable = true;
-      certificate = "/home/${user}/Cloudflare_CA.crt";
+      certificate = "/home/charlesstein/Cloudflare_CA.crt";
     };
   };
 

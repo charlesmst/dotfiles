@@ -44,6 +44,7 @@
 
 		  lanzaboote.nixosModules.lanzaboote
 		  ./display-switch.nix
+		  ./warp.nix
 		];
 	      };
 	    };
