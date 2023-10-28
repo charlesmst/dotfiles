@@ -4,18 +4,15 @@
   environment.systemPackages =  [
     displaySwitch.packages.x86_64-linux.display_switch
   ];
-systemd.services.foo = {
+  systemd.user.services.display_switch = {
     enable = true;
-    description = "bar";
+    description = "Display switch via USB switch";
     unitConfig = {
       Type = "simple";
-      # ...
     };
     serviceConfig = {
-      ExecStart = "${foo}/bin/foo";
-      # ...
+      ExecStart = "${displaySwitch.packages.x86_64-linux.display_switch}/bin/display_switch";
     };
-    wantedBy = [ "multi-user.target" ];
-    # ...
+    wantedBy = [ "default.target" ];
   };
 }
