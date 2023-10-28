@@ -63,6 +63,9 @@
     ".tmux.conf" = {
     	source = inputs.ohMyTmux + "/.tmux.conf";
     };
+    ".ideavimrc" = {
+    	source = inputs.dotfiles + "/.ideavimrc";
+    };
     ".tmux.conf.local" = {
     	source = inputs.dotfiles + "/.tmux.conf.local";
     };
