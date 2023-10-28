@@ -147,6 +147,9 @@ boot = {
     usbutils
 
     docker
+    docker-compose
+
+    dbeaver
     jetbrains.idea-ultimate
     jetbrains.idea-community
     jetbrains.jdk
@@ -159,6 +162,7 @@ boot = {
     awscli2
     saml2aws
     postgresql_14
+    slack
   ];
 
   # Some programs need SUID wrappers, can be configured further or are

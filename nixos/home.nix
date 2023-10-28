@@ -24,6 +24,10 @@
     git
     tmux
     lazygit
+    gh
+    bat
+    jq
+    ripgrep
     fzf
     asdf-vm
     nodejs
@@ -35,6 +39,10 @@
     ruby
     openjdk
     lazygit
+    protobuf
+    php81
+    php81Extensions.grpc
+    watch
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
