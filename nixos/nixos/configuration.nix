@@ -109,24 +109,13 @@ boot = {
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   #  wget
-    tmux
-    fzf
-    lazygit
-    git
     xclip
-    asdf-vm
     bitwarden
     wget
-    nodejs
-    python3
-    go
     unzip
     gcc
     home-manager
     git-credential-manager
-    cargo
-    rustc
-    kubectl
     tree
     wget
     gnupg
@@ -134,7 +123,6 @@ boot = {
     gnumake
     unzip
     vlc
-    xclip
     lightlocker
     gparted
     uget
@@ -144,13 +132,10 @@ boot = {
     pass
     ghostscript
     syncthing
-    ruby
     sbcl
     leiningen
     sbt
-    openjdk
     watchman
-    kubectl
     ripgrep
 
     alacritty
