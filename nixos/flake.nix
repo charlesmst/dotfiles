@@ -26,7 +26,7 @@
     displaySwitch.url = "github:charlesmst/display-switch";
   };
 
-  outputs = { self, nixpkgs, home-manager,lanzaboote,  ... }@inputs: let
+  outputs = { self, nixpkgs, home-manager,lanzaboote,displaySwitch,  ... }@inputs: let
       inherit (self) outputs;
     in {
       nixosConfigurations = {
@@ -37,12 +37,13 @@
 	      };
 
 	      nixos = nixpkgs.lib.nixosSystem {
-		specialArgs = {inherit inputs outputs;};
+		specialArgs = {inherit inputs outputs displaySwitch;};
 		# > Our main nixos configuration file <
 		modules = [
 		  ./nixos/configuration.nix
 
 		  lanzaboote.nixosModules.lanzaboote
+		  ./display-switch.nix
 		];
 	      };
 	    };
@@ -56,7 +57,6 @@
           ./home.nix
           ./de.nix
 	  ./zsh.nix
-	  ./display-switch.nix
 	];
 
       };
