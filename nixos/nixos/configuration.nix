@@ -145,6 +145,11 @@ boot = {
     wl-clipboard
     dconf2nix
     usbutils
+
+    docker
+    jetbrains.idea-ultimate
+    jetbrains.idea-community
+    jetbrains.jdk
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
