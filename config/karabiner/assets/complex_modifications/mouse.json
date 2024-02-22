@@ -90,18 +90,138 @@
         },
 
 	{
-          "description": "middle button",
+          "description": "middle button 6",
           "type": "basic",
           "from": {
             "pointing_button": "button6"
           },
+          "conditions": [
+            {
+                "name": "enable_mouse_motion_to_scroll",
+                "type": "variable_unless",
+                "value": 1
+            }
+          ],
           "to": [
             {
-              "pointing_button": "button3"
+                "set_variable": {
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 1
+                }
             }
           ]
-        }
+        },
 
+	{
+          "description": "middle button forward",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button5"
+          },
+          "to_if_alone": [
+            {
+              "pointing_button": "button5"
+            }
+          ],
+          "to": [
+            {
+                "set_variable": {
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 1
+                }
+            }
+          ],
+          "to_after_key_up": [
+                {
+                  "set_variable": {
+                      "name": "enable_mouse_motion_to_scroll",
+                      "value": 0
+                  }
+                }
+           ]
+        },
+	{
+          "description": "middle button rb 6",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button6"
+          },
+          "conditions": [
+            {
+                "name": "enable_mouse_motion_to_scroll",
+                "type": "variable_unless",
+                "value": 0
+            }
+          ],
+          "to": [
+            {
+                "set_variable": {
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 0
+                }
+            }
+          ]
+        },
+	{
+          "description": "middle button",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button8"
+          },
+          "conditions": [
+            {
+                "name": "enable_mouse_motion_to_scroll",
+                "type": "variable_unless",
+                "value": 1
+            }
+          ],
+          "to": [
+            {
+                "set_variable": {
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 1
+                }
+            }
+          ]
+        },
+
+	{
+          "description": "middle button rb",
+          "type": "basic",
+          "from": {
+            "pointing_button": "button8"
+          },
+          "conditions": [
+            {
+                "name": "enable_mouse_motion_to_scroll",
+                "type": "variable_unless",
+                "value": 0
+            }
+          ],
+          "to": [
+            {
+                "set_variable": {
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 0
+                }
+            }
+          ]
+        },
+        {
+            "type": "mouse_motion_to_scroll",
+            "from": {
+                "modifiers": {
+                    "optional": ["any"]
+                }
+            },
+            "conditions": [
+                {
+                    "type": "variable_if",
+                    "name": "enable_mouse_motion_to_scroll",
+                    "value": 1
+                }
+            ]
+        }
       ]
     }
   ]
