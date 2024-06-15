@@ -1,3 +1,5 @@
+vim.g.maplocalleader = ' '
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
@@ -48,7 +50,6 @@ vim.o.termguicolors = true
 -- Set completeopt to have a better completion experience
 vim.o.completeopt = 'menuone,noselect'
 
-vim.g.maplocalleader = ' '
 vim.o.incsearch = true
 vim.o.clipboard = "unnamedplus"
 vim.o.hidden = true
