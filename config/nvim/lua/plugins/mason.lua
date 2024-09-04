@@ -91,6 +91,13 @@ return {
         }
       end,
 
+      ["groovy-language-server"] = function()
+        require("lspconfig")["groovy-language-server"].setup {
+          on_attach = on_attach,
+          autostart = false,
+          capabilities = capabilities,
+        }
+      end,
       ["lua_ls"] = function()
         require("lspconfig")["lua_ls"].setup {
           on_attach = on_attach,
