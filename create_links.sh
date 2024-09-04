@@ -9,7 +9,7 @@ ln -fs $(pwd)/.vimrc  $HOME/.vimrc
 ln -fs $(pwd)/.ideavimrc  $HOME/.ideavimrc
 
 mkdir -p ~/.config/alacritty
-ln -fs $(pwd)/config/alacritty/alacritty.yml $HOME/.config/alacritty/alacritty.yml
+ln -fs $(pwd)/config/alacritty/alacritty.toml $HOME/.config/alacritty/alacritty.toml
 
 if [ -d "$HOME/.config/nvim" ];then
 	# ln -fs $(pwd)/config/nvim/init.vim $HOME/.config/nvim/init.vim
