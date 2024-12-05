@@ -15,7 +15,7 @@ return {
     "jay-babu/mason-nvim-dap.nvim",
   },
   config = function()
-    local servers = { 'clangd', 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls','lua_ls' }
+    local servers = { 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls','lua_ls' }
 
     local on_attach = function(_, bufnr)
       -- NOTE: Remember that lua is a real programming language, and as such it is possible
