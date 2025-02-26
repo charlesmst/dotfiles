@@ -1190,10 +1190,9 @@
           },
           "to": [
             {
-              "key_code": "w",
+              "key_code": "f4",
               "modifiers": [
-                "left_option",
-                "left_shift"
+                "left_control"
               ]
             }
           ]
@@ -1215,9 +1214,9 @@
           },
           "to": [
             {
-              "key_code": "s",
+              "key_code": "f4",
               "modifiers": [
-                "left_option",
+                "left_control",
                 "left_shift"
               ]
             }
