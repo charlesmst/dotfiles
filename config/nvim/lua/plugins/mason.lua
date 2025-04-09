@@ -181,9 +181,9 @@ return {
         end, { 'i', 's' }),
       },
       sources = {
-        { name = 'nvim_lsp' },
-        { name = 'luasnip' },
-        { name = 'copilot' }
+        -- { name = 'nvim_lsp' },
+        -- { name = 'luasnip' },
+        -- { name = 'copilot' }
       },
     }
   end
