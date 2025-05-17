@@ -51,7 +51,6 @@ source ~/.secrets.sh
 
 eval $(thefuck --alias)
 
-source ~/.asdf/plugins/java/set-java-home.zsh
 
 export EDITOR=nvim
 export AWS_PROFILE=dev

@@ -1,18 +1,16 @@
 return {
-  "williamboman/mason.nvim",
+  "mason-org/mason.nvim",
   dependencies = {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
     "neovim/nvim-lspconfig",
     'hrsh7th/nvim-cmp',
     'hrsh7th/cmp-nvim-lsp',
     'hrsh7th/cmp-copilot',
-    'L3MON4D3/LuaSnip',
     'saadparwaiz1/cmp_luasnip',
-
     "jay-babu/mason-null-ls.nvim",
     "jose-elias-alvarez/null-ls.nvim",
     'folke/neodev.nvim',
-    "jay-babu/mason-nvim-dap.nvim",
+    -- "jay-babu/mason-nvim-dap.nvim",
   },
   config = function()
     local servers = { 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls','lua_ls' }
@@ -66,63 +64,64 @@ return {
     capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
     require("mason").setup()
-    require("mason-lspconfig").setup {
+    local mason_lspconfig = require("mason-lspconfig")
+    mason_lspconfig.setup {
       ensure_installed = servers,
     }
 
-    require("mason-lspconfig").setup_handlers {
-      -- The first entry (without a key) will be the default handler
-      -- and will be called for each installed server that doesn't have
-      -- a dedicated handler.
-      function(server_name) -- default handler (optional)
-        require("lspconfig")[server_name].setup {
-          on_attach = on_attach,
-          autostart = true,
-          capabilities = capabilities,
-        }
-      end,
+    -- mason_lspconfig.setup_handlers {
+    --   -- The first entry (without a key) will be the default handler
+    --   -- and will be called for each installed server that doesn't have
+    --   -- a dedicated handler.
+    --   function(server_name) -- default handler (optional)
+    --     require("lspconfig")[server_name].setup {
+    --       on_attach = on_attach,
+    --       autostart = true,
+    --       capabilities = capabilities,
+    --     }
+    --   end,
 
-      -- disable java, too much memory usage by default
-      ["jdtls"] = function()
-        require("lspconfig")["jdtls"].setup {
-          on_attach = on_attach,
-          autostart = false,
-          capabilities = capabilities,
-        }
-      end,
+    --   -- disable java, too much memory usage by default
+    --   ["jdtls"] = function()
+    --     require("lspconfig")["jdtls"].setup {
+    --       on_attach = on_attach,
+    --       autostart = false,
+    --       capabilities = capabilities,
+    --     }
+    --   end,
 
-      ["groovy-language-server"] = function()
-        require("lspconfig")["groovy-language-server"].setup {
-          on_attach = on_attach,
-          autostart = false,
-          capabilities = capabilities,
-        }
-      end,
-      ["lua_ls"] = function()
-        require("lspconfig")["lua_ls"].setup {
-          on_attach = on_attach,
-          autostart = true,
-          capabilities = capabilities,
-          settings = {
-            Lua = {
-              diagnostics = { globals = { 'vim' } }
-            }
-          }
-        }
-      end,
-      ["rust_analyzer"] = function()
-        require("lspconfig")["rust_analyzer"].setup {
-          on_attach = on_attach,
-          autostart = true,
-          capabilities = capabilities,
-          settings = {
-            Lua = {
-              diagnostics = { globals = { 'vim' } }
-            }
-          }
-        }
-      end,
-    }
+    --   ["groovy-language-server"] = function()
+    --     require("lspconfig")["groovy-language-server"].setup {
+    --       on_attach = on_attach,
+    --       autostart = false,
+    --       capabilities = capabilities,
+    --     }
+    --   end,
+    --   ["lua_ls"] = function()
+    --     require("lspconfig")["lua_ls"].setup {
+    --       on_attach = on_attach,
+    --       autostart = true,
+    --       capabilities = capabilities,
+    --       settings = {
+    --         Lua = {
+    --           diagnostics = { globals = { 'vim' } }
+    --         }
+    --       }
+    --     }
+    --   end,
+    --   ["rust_analyzer"] = function()
+    --     require("lspconfig")["rust_analyzer"].setup {
+    --       on_attach = on_attach,
+    --       autostart = true,
+    --       capabilities = capabilities,
+    --       settings = {
+    --         Lua = {
+    --           diagnostics = { globals = { 'vim' } }
+    --         }
+    --       }
+    --     }
+    --   end,
+    -- }
     -- require('neodev').setup()
     require("mason-null-ls").setup({
       ensure_installed = {
@@ -138,19 +137,17 @@ return {
 
     -- require 'mason-null-ls'.setup_handlers()
 
-    require("mason-nvim-dap").setup({
-      automatic_setup = true,
-    })
+    -- require("mason-nvim-dap").setup({
+    --   automatic_setup = true,
+    -- })
     -- require 'mason-nvim-dap'.setup_handlers {}
     -- nvim-cmp setup
     local cmp = require 'cmp'
-    local luasnip = require 'luasnip'
 
 
     cmp.setup {
       snippet = {
         expand = function(args)
-          luasnip.lsp_expand(args.body)
         end,
       },
       mapping = cmp.mapping.preset.insert {
