@@ -32,5 +32,16 @@ function kcbash(){
     fi
     echo "selected pod $selected"
 
-    kubectl exec -it $selected bash
+    kubectl exec -it $selected sh
+}
+
+function kcenv(){
+    if [[ -z "$1" ]]; then
+        selected=`kubectl get pods --no-headers | fzf | awk '{print $1}'`
+    else
+        selected=`kubectl get po -l app=$1 -o name `
+    fi
+    echo "selected pod $selected"
+
+    kubectl exec -it $selected env
 }
