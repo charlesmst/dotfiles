@@ -30,6 +30,14 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" | tee -a "$BACKUP_LOG"
 }
 
+log_success() {
+    echo -e "${GREEN}✓${NC} $1" | tee -a "$BACKUP_LOG"
+}
+
+log_step() {
+    echo -e "${BLUE}==>${NC} ${MAGENTA}$1${NC}" | tee -a "$BACKUP_LOG"
+}
+
 backup_if_exists() {
     local source=$1
     local dest=$2
@@ -69,7 +77,8 @@ log "=== Backing up CRITICAL files ==="
 log "Backing up GPG keys..."
 if [ -d "$HOME/.gnupg" ]; then
     mkdir -p "$BACKUP_DIR/critical"
-    tar czf "$BACKUP_DIR/critical/gnupg_backup.tar.gz" -C "$HOME" .gnupg
+    # Exclude sockets which can't be archived
+    tar czf "$BACKUP_DIR/critical/gnupg_backup.tar.gz" -C "$HOME" --exclude='*.socket' --exclude='S.gpg-agent*' .gnupg 2>/dev/null || true
     log "  ✓ GPG keys backed up to: critical/gnupg_backup.tar.gz"
 else
     log_warning "  ✗ No GPG directory found"
@@ -136,7 +145,11 @@ find "$HOME" -maxdepth 1 -type f \( -name "*.sh" -o -name "*.bash" -o -name "*.z
     log "  ✓ Backed up: $filename"
 done
 
-log_success "Shell configuration files backed up"
+# Count files backed up
+if [ -d "$BACKUP_DIR/shell/home_configs" ]; then
+    NUM_SHELL_FILES=$(ls -1 "$BACKUP_DIR/shell/home_configs" 2>/dev/null | wc -l | tr -d ' ')
+    log_success "Shell configuration files backed up ($NUM_SHELL_FILES files)"
+fi
 
 # iTerm2 settings (if using custom folder)
 if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
