@@ -29,8 +29,46 @@ sort_rows() {
         | cut -f2-
 }
 
+CACHE="${HOME}/.claude/state/sessionizer-cache.txt"
+STALE_SECS="${SESSIONIZER_STALE:-5}"
+
+cache_age() {
+    [ -f "$CACHE" ] || { echo 999999; return; }
+    local mtime now
+    mtime=$(stat -f %m "$CACHE" 2>/dev/null || echo 0)
+    now=$(date +%s)
+    echo $(( now - mtime ))
+}
+
+refresh_cache() {
+    mkdir -p "$(dirname "$CACHE")"
+    local tmp
+    tmp=$(mktemp "$CACHE.XXXXXX")
+    if build_rows | sort_rows > "$tmp"; then
+        mv "$tmp" "$CACHE"
+    else
+        rm -f "$tmp"
+    fi
+}
+
 if [ "${1:-}" = "--list" ]; then
-    build_rows | sort_rows
+    if [ "$(cache_age)" -lt "$STALE_SECS" ]; then
+        cat "$CACHE"
+    else
+        build_rows | sort_rows | tee "$CACHE"
+    fi
+    exit 0
+fi
+
+if [ "${1:-}" = "--refresh-cache" ]; then
+    if [ "$(cache_age)" -ge "$STALE_SECS" ]; then
+        refresh_cache
+    fi
+    exit 0
+fi
+
+if [ "${1:-}" = "--refresh-now" ]; then
+    refresh_cache
     exit 0
 fi
 
@@ -40,7 +78,18 @@ if [ $# -eq 1 ] && [ -d "$1" ]; then
     selected_name=$(basename "$selected_dir" | tr . _)
 else
     SELF="${BASH_SOURCE[0]:-$0}"
-    selection=$(build_rows | sort_rows | fzf \
+
+    # Read cache immediately so fzf displays without blocking on find/tmux.
+    if [ -f "$CACHE" ]; then
+        rows=$(cat "$CACHE")
+    else
+        rows=$(build_rows | sort_rows)
+        mkdir -p "$(dirname "$CACHE")"
+        printf '%s' "$rows" > "$CACHE"
+    fi
+    (bash "$SELF" --refresh-cache >/dev/null 2>&1 &)
+
+    selection=$(printf '%s' "$rows" | fzf \
         --delimiter=$'\t' \
         --with-nth=1 \
         --nth=1 \
@@ -49,7 +98,7 @@ else
         --header-first \
         --no-sort \
         --ansi \
-        --bind "ctrl-d:execute-silent(tmux kill-session -t {3} 2>/dev/null)+reload(bash '$SELF' --list)")
+        --bind "ctrl-d:execute-silent(tmux kill-session -t {3} 2>/dev/null; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
     [ -z "$selection" ] && exit 0
     selected_dir=$(printf '%s' "$selection" | awk -F'\t' '{print $2}')
     selected_name=$(printf '%s' "$selection" | awk -F'\t' '{print $3}')

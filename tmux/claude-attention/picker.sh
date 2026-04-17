@@ -117,14 +117,61 @@ build_rows() {
         | cut -f2-
 }
 
-# --list: just print the sorted rows (used by fzf reload action).
+CACHE="$BASE/picker-cache.txt"
+STALE_SECS="${CLAUDE_ATTENTION_STALE:-5}"
+
+cache_age() {
+    [ -f "$CACHE" ] || { echo 999999; return; }
+    local mtime now
+    mtime=$(stat -f %m "$CACHE" 2>/dev/null || echo 0)
+    now=$(date +%s)
+    echo $(( now - mtime ))
+}
+
+refresh_cache() {
+    local tmp
+    tmp=$(mktemp "$CACHE.XXXXXX")
+    if build_rows > "$tmp"; then
+        mv "$tmp" "$CACHE"
+    else
+        rm -f "$tmp"
+    fi
+}
+
+# --list: print current rows (cache if fresh, else rebuild). Used by fzf reload.
 if [ "${1:-}" = "--list" ]; then
-    build_rows
+    if [ "$(cache_age)" -lt "$STALE_SECS" ]; then
+        cat "$CACHE"
+    else
+        build_rows | tee "$CACHE"
+    fi
     exit 0
 fi
 
+# --refresh-cache: rebuild cache if older than $STALE_SECS. For tmux hooks.
+if [ "${1:-}" = "--refresh-cache" ]; then
+    if [ "$(cache_age)" -ge "$STALE_SECS" ]; then
+        refresh_cache
+    fi
+    exit 0
+fi
+
+# --refresh-now: rebuild cache regardless of age. For notify hook (new pending marker).
+if [ "${1:-}" = "--refresh-now" ]; then
+    refresh_cache
+    exit 0
+fi
+
+# Interactive mode: read cache immediately, then trigger background refresh.
+if [ -f "$CACHE" ]; then
+    rows=$(cat "$CACHE")
+else
+    rows=$(build_rows)
+    printf '%s' "$rows" > "$CACHE"
+fi
+(bash "${BASH_SOURCE[0]:-$0}" --refresh-cache >/dev/null 2>&1 &)
+
 # Prune pending markers for panes that are no longer in the active Claude list.
-rows=$(build_rows)
 live_panes=$(printf '%s' "$rows" | awk -F'\t' '{print $2}')
 for p in "$PENDING_DIR"/*; do
     [ -e "$p" ] || continue
@@ -156,7 +203,7 @@ selected=$(printf '%s' "$rows" | fzf \
     --preview-window='down:65%:wrap' \
     --no-sort \
     --ansi \
-    --bind "ctrl-d:execute-silent(kill {5} 2>/dev/null; sleep 0.4)+reload(bash '$SELF' --list)")
+    --bind "ctrl-d:execute-silent(kill {5} 2>/dev/null; sleep 0.4; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
 
 [ -z "$selected" ] && exit 0
 

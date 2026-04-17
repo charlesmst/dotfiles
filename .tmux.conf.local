@@ -402,9 +402,12 @@ bind-key p display-popup -E "~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 bind-key t switch-client -l
 
 # -- claude-attention: picker for Claude panes needing attention ---------------
-# prefix + a opens the picker; pane-focus-in clears the "unread" marker.
+# prefix + a opens the picker; pane-focus-in clears the "unread" marker and
+# warms the picker + sessionizer caches (no-op if cache is < 5s old).
 set -g focus-events on
 set-hook -g pane-focus-in 'run-shell "~/personal/dotfiles/tmux/claude-attention/clear.sh #{pane_id}"'
+set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/claude-attention/refresh-caches.sh"'
+set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/claude-attention/refresh-caches.sh"'
 bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/claude-attention/picker.sh"
 # -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
