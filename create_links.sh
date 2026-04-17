@@ -29,4 +29,9 @@ fi
 # Requires oh my tmux
 ln -fs "$(pwd)/.tmux.conf.local"  "$HOME/.tmux.conf.local"
 
+# Claude Code hooks
+mkdir -p "$HOME/.claude/hooks"
+ln -fs "$(pwd)/config/claude/hooks/worktree-layout.sh" "$HOME/.claude/hooks/worktree-layout.sh"
+ln -fs "$(pwd)/config/claude/hooks/worktree-layout-cleanup.sh" "$HOME/.claude/hooks/worktree-layout-cleanup.sh"
+
 
