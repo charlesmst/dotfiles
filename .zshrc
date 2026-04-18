@@ -67,3 +67,5 @@ fi
 
 
 . "$HOME/.local/bin/env"
+# opencode
+export PATH=/home/charlesstein/.opencode/bin:$PATH

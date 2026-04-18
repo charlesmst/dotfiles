@@ -5,7 +5,7 @@ return {
     "neovim/nvim-lspconfig",
     'hrsh7th/nvim-cmp',
     'hrsh7th/cmp-nvim-lsp',
-    'hrsh7th/cmp-copilot',
+    'L3MON4D3/LuaSnip',
     'saadparwaiz1/cmp_luasnip',
     "jay-babu/mason-null-ls.nvim",
     "jose-elias-alvarez/null-ls.nvim",
