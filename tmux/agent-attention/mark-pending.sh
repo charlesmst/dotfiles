@@ -6,7 +6,7 @@ set -u
 PANE="${1:-${TMUX_PANE:-}}"
 [ -z "$PANE" ] && exit 0
 
-BASE="${CLAUDE_ATTENTION_DIR:-$HOME/.claude/state}"
+BASE="${AGENT_ATTENTION_DIR:-$HOME/.local/state/agent-attention}"
 mkdir -p "$BASE/pending"
 
 SAFE="${PANE//\//_}"

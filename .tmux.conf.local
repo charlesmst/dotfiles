@@ -232,7 +232,7 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{username}
 #     - #{username_ssh}
 tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} "
-tmux_conf_theme_status_right=" #(~/personal/dotfiles/tmux/claude-attention/status.sh) #{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_right=" #(~/personal/dotfiles/tmux/agent-attention/status.sh) #{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -401,14 +401,14 @@ unbind -n C-p
 bind-key p display-popup -E "~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 bind-key t switch-client -l
 
-# -- claude-attention: picker for Claude panes needing attention ---------------
+# -- agent-attention: picker for Claude / Cursor CLI panes needing attention ---
 # prefix + a opens the picker; pane-focus-in clears the "unread" marker and
 # warms the picker + sessionizer caches (no-op if cache is < 5s old).
 set -g focus-events on
-set-hook -g pane-focus-in 'run-shell "~/personal/dotfiles/tmux/claude-attention/clear.sh #{pane_id}"'
-set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/claude-attention/refresh-caches.sh"'
-set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/claude-attention/refresh-caches.sh"'
-bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/claude-attention/picker.sh"
+set-hook -g pane-focus-in 'run-shell "~/personal/dotfiles/tmux/agent-attention/clear.sh #{pane_id}"'
+set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
+set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
+bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/agent-attention/picker.sh"
 # -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
 # bash

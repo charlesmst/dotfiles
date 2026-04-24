@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "bash ~/.cursor/hooks/write-session-meta.sh"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "bash ~/.cursor/hooks/clear-session-meta.sh"
+      },
+      {
+        "command": "bash ~/personal/dotfiles/tmux/agent-attention/clear-working.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "bash ~/personal/dotfiles/tmux/agent-attention/mark-working.sh"
+      },
+      {
+        "command": "AGENT=cursor bash ~/personal/dotfiles/tmux/agent-attention/auto-name.sh"
+      },
+      {
+        "command": "AGENT=cursor bash ~/personal/dotfiles/tmux/agent-attention/sync-tmux-name.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash ~/personal/dotfiles/tmux/agent-attention/clear-working.sh"
+      },
+      {
+        "command": "AGENT=cursor bash ~/personal/dotfiles/config/agent-shared/notify-if-unfocused.sh"
+      },
+      {
+        "command": "AGENT=cursor bash ~/personal/dotfiles/tmux/agent-attention/sync-tmux-name.sh"
+      }
+    ]
+  }
+}

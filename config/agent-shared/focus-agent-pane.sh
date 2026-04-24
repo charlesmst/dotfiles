@@ -1,7 +1,7 @@
 #!/bin/bash
-# Focus the tmux pane where Claude Code is running.
+# Focus the tmux pane where the agent (Claude Code or Cursor CLI) is running.
 # Called by terminal-notifier when the notification is clicked.
-# Usage: focus-claude-pane.sh <session_name> <window_index> <pane_id>
+# Usage: focus-agent-pane.sh <session_name> <window_index> <pane_id>
 
 # terminal-notifier launches with a minimal PATH; ensure tmux is reachable.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
