@@ -94,11 +94,12 @@ else
         --with-nth=1 \
         --nth=1 \
         --prompt='session> ' \
-        --header='[ctrl-d: kill session]' \
+        --header='[ctrl-d: kill session | ctrl-r: refresh]' \
         --header-first \
         --no-sort \
         --ansi \
-        --bind "ctrl-d:execute-silent(tmux kill-session -t {3} 2>/dev/null; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
+        --bind "ctrl-d:execute-silent(tmux kill-session -t {3} 2>/dev/null; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)" \
+        --bind "ctrl-r:execute-silent(bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
     [ -z "$selection" ] && exit 0
     selected_dir=$(printf '%s' "$selection" | awk -F'\t' '{print $2}')
     selected_name=$(printf '%s' "$selection" | awk -F'\t' '{print $3}')

@@ -1,18 +1,30 @@
 #!/bin/bash
 # fzf picker over currently-running Claude sessions mapped to their tmux panes.
+# States:
+#   ●       yellow  = needs attention (pending marker set by Notification/Stop)
+#   spinner cyan    = working         (UserPromptSubmit fired, Stop not yet)
+#   blank           = idle
 # Ctrl-D on a row: kill Claude process in that pane and refresh the list.
-# Source of truth: ~/.claude/sessions/*.json.
+# Ctrl-R: force refresh. The spinner animates while the picker is open.
+# Source of truth: ~/.claude/sessions/*.json + $BASE/{pending,working}/.
 set -u
 
 BASE="${CLAUDE_ATTENTION_DIR:-$HOME/.claude/state}"
 PENDING_DIR="$BASE/pending"
+WORKING_DIR="$BASE/working"
 SESSIONS_DIR="$HOME/.claude/sessions"
-mkdir -p "$PENDING_DIR"
+mkdir -p "$PENDING_DIR" "$WORKING_DIR"
 
-W_MARK=2
 W_SWP=28
 W_TOPIC=60
 W_AGE=6
+
+SPIN_PLACEHOLDER='{SPIN}'
+SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+C_YELLOW=$'\033[33m'
+C_CYAN=$'\033[36m'
+C_RESET=$'\033[0m'
 
 extract_topic() {
     local transcript="$1"
@@ -56,6 +68,14 @@ find_tmux_pane() {
     return 1
 }
 
+format_age() {
+    local age="$1"
+    if   [ "$age" -lt 60   ]; then printf '%ss'  "$age"
+    elif [ "$age" -lt 3600 ]; then printf '%sm'  "$((age/60))"
+    else                            printf '%sh' "$((age/3600))"
+    fi
+}
+
 build_rows() {
     local pane_snapshot now rows=""
     pane_snapshot=$(tmux list-panes -a -F '#{pane_pid}|#{pane_id}|#{session_name}:#{window_index}.#{pane_index}|#{session_name}|#{window_index}' 2>/dev/null)
@@ -77,16 +97,21 @@ build_rows() {
         tmux_session=$(printf '%s' "$pane_line" | awk -F'|' '{print $4}')
         window_idx=$(printf '%s' "$pane_line" | awk -F'|' '{print $5}')
 
-        local mark ago mtime age
+        local state mark ago mtime age
         if [ -e "$PENDING_DIR/$pane_id" ]; then
-            mark="● "
+            state=0
+            mark="${C_YELLOW}●${C_RESET} "
             mtime=$(stat -f %m "$PENDING_DIR/$pane_id" 2>/dev/null || echo "$now")
             age=$(( now - mtime ))
-            if   [ "$age" -lt 60   ]; then ago="${age}s"
-            elif [ "$age" -lt 3600 ]; then ago="$((age/60))m"
-            else                            ago="$((age/3600))h"
-            fi
+            ago=$(format_age "$age")
+        elif [ -e "$WORKING_DIR/$pane_id" ]; then
+            state=1
+            mark="${SPIN_PLACEHOLDER} "
+            mtime=$(stat -f %m "$WORKING_DIR/$pane_id" 2>/dev/null || echo "$now")
+            age=$(( now - mtime ))
+            ago=$(format_age "$age")
         else
+            state=2
             mark="  "
             ago="-"
         fi
@@ -103,18 +128,16 @@ build_rows() {
         fi
 
         local display
-        display=$(printf '%s %s  %s  %s' \
+        display=$(printf '%s%s  %s  %s' \
             "$mark" \
             "$(fit "$swp"   "$W_SWP")" \
             "$(fit "$label" "$W_TOPIC")" \
             "$(fit "$ago"   "$W_AGE")")
 
-        rows+="$display	$pane_id	$tmux_session	$window_idx	$claude_pid"$'\n'
+        rows+="$state	$display	$pane_id	$tmux_session	$window_idx	$claude_pid"$'\n'
     done
 
-    printf '%s' "$rows" | awk -F'\t' 'BEGIN{OFS="\t"} NF>0 {key = ($1 ~ /^●/) ? "0" : "1"; print key, $0}' \
-        | LC_ALL=C sort -t$'\t' -k1,1 -k2,2 \
-        | cut -f2-
+    printf '%s' "$rows" | LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | cut -f2-
 }
 
 CACHE="$BASE/picker-cache.txt"
@@ -138,13 +161,26 @@ refresh_cache() {
     fi
 }
 
-# --list: print current rows (cache if fresh, else rebuild). Used by fzf reload.
+render_cache() {
+    # Substitute the spinner placeholder with the current animation frame,
+    # pulled from $CLAUDE_SPIN_FRAME (0-9). Defaults to frame 0 if unset.
+    [ -f "$CACHE" ] || return 0
+    local frame="${CLAUDE_SPIN_FRAME:-0}"
+    case "$frame" in *[!0-9]*) frame=0 ;; esac
+    local spin="${SPIN_FRAMES[$(( frame % 10 ))]}"
+    local replacement="${C_CYAN}${spin}${C_RESET}"
+    # sed-escape the placeholder (no regex chars besides {}) — use | as delimiter
+    sed "s|${SPIN_PLACEHOLDER}|${replacement}|g" "$CACHE"
+}
+
+# --list: print rows. Fast path — serves cache immediately, refreshes async if stale.
 if [ "${1:-}" = "--list" ]; then
-    if [ "$(cache_age)" -lt "$STALE_SECS" ]; then
-        cat "$CACHE"
-    else
-        build_rows | tee "$CACHE"
+    if [ ! -f "$CACHE" ]; then
+        refresh_cache
+    elif [ "$(cache_age)" -ge "$STALE_SECS" ]; then
+        (refresh_cache >/dev/null 2>&1 &)
     fi
+    render_cache
     exit 0
 fi
 
@@ -156,54 +192,76 @@ if [ "${1:-}" = "--refresh-cache" ]; then
     exit 0
 fi
 
-# --refresh-now: rebuild cache regardless of age. For notify hook (new pending marker).
+# --refresh-now: rebuild cache regardless of age. For notify / working hooks.
 if [ "${1:-}" = "--refresh-now" ]; then
     refresh_cache
     exit 0
 fi
 
-# Interactive mode: read cache immediately, then trigger background refresh.
-if [ -f "$CACHE" ]; then
-    rows=$(cat "$CACHE")
-else
-    rows=$(build_rows)
-    printf '%s' "$rows" > "$CACHE"
+# Interactive mode: ensure cache is warm, then launch fzf with a background
+# animator that reloads every ~250ms to advance the spinner frame.
+if [ ! -f "$CACHE" ]; then
+    refresh_cache
 fi
 (bash "${BASH_SOURCE[0]:-$0}" --refresh-cache >/dev/null 2>&1 &)
 
-# Prune pending markers for panes that are no longer in the active Claude list.
-live_panes=$(printf '%s' "$rows" | awk -F'\t' '{print $2}')
-for p in "$PENDING_DIR"/*; do
-    [ -e "$p" ] || continue
-    pid=$(basename "$p")
-    printf '%s\n' "$live_panes" | grep -qx "$pid" || rm -f "$p"
+# Prune stale markers for panes no longer in the active Claude list.
+live_panes=$(cut -f2 "$CACHE" 2>/dev/null)
+for dir in "$PENDING_DIR" "$WORKING_DIR"; do
+    for p in "$dir"/*; do
+        [ -e "$p" ] || continue
+        pid=$(basename "$p")
+        printf '%s\n' "$live_panes" | grep -qx "$pid" || rm -f "$p"
+    done
 done
 
-if [ -z "$rows" ]; then
+if [ ! -s "$CACHE" ]; then
     tmux display-message "No live Claude sessions"
     exit 0
 fi
 
-header=$(printf '%s %s  %s  %s' \
-    "$(printf "%-${W_MARK}s" " ")" \
+header=$(printf '%s  %s  %s' \
     "$(printf "%-${W_SWP}s"   "session:w.p")" \
     "$(printf "%-${W_TOPIC}s" "topic")" \
     "$(printf "%-${W_AGE}s"   "age")")
 
 SELF="${BASH_SOURCE[0]:-$0}"
 
-selected=$(printf '%s' "$rows" | fzf \
+# Animator: while this file exists, fzf is alive. Each tick POSTs a reload to
+# fzf's listen port with an incrementing CLAUDE_SPIN_FRAME env var.
+PORT_FILE=$(mktemp -t claude-picker-port.XXXXXX)
+trap 'rm -f "$PORT_FILE"' EXIT
+
+(
+    frame=0
+    while [ -f "$PORT_FILE" ]; do
+        sleep 0.25
+        port=$(cat "$PORT_FILE" 2>/dev/null)
+        [ -z "$port" ] && continue
+        curl -sS -m 0.2 -X POST "http://localhost:${port}" \
+            -d "reload(CLAUDE_SPIN_FRAME=${frame} bash '$SELF' --list)" \
+            >/dev/null 2>&1 || true
+        frame=$(( (frame + 1) % 10 ))
+    done
+) >/dev/null 2>&1 &
+
+selected=$(CLAUDE_SPIN_FRAME=0 bash "$SELF" --list | fzf \
+    --listen \
     --delimiter=$'\t' \
     --with-nth=1 \
     --nth=1 \
     --prompt='claude> ' \
-    --header="$header  [ctrl-d: kill]" \
+    --header="$header  [ctrl-d: kill | ctrl-r: refresh]" \
     --header-first \
     --preview='tmux capture-pane -ep -t {2} 2>/dev/null | tail -40' \
     --preview-window='down:65%:wrap' \
     --no-sort \
     --ansi \
-    --bind "ctrl-d:execute-silent(kill {5} 2>/dev/null; sleep 0.4; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
+    --bind "start:execute-silent(printf '%s' \$FZF_PORT > '$PORT_FILE')" \
+    --bind "ctrl-d:execute-silent(kill {5} 2>/dev/null; sleep 0.4; bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)" \
+    --bind "ctrl-r:execute-silent(bash '$SELF' --refresh-now)+reload(bash '$SELF' --list)")
+
+rm -f "$PORT_FILE"
 
 [ -z "$selected" ] && exit 0
 
