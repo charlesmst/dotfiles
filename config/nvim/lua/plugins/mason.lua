@@ -10,18 +10,14 @@ return {
     "jay-babu/mason-null-ls.nvim",
     "jose-elias-alvarez/null-ls.nvim",
     'folke/neodev.nvim',
-    -- "jay-babu/mason-nvim-dap.nvim",
   },
   config = function()
-    local servers = { 'rust_analyzer', 'pyright', 'tsserver', 'gopls', 'jdtls','lua_ls' }
+    require("neodev").setup()
+    local luasnip = require("luasnip")
+
+    local servers = { 'rust_analyzer', 'pyright', 'ts_ls', 'gopls', 'jdtls', 'lua_ls' }
 
     local on_attach = function(_, bufnr)
-      -- NOTE: Remember that lua is a real programming language, and as such it is possible
-      -- to define small helper and utility functions so you don't have to repeat yourself
-      -- many times.
-      --
-      -- In this case, we create a function that lets us more easily define mappings specific
-      -- for LSP related items. It sets the mode, buffer and description for us each time.
       local nmap = function(keys, func, desc)
         if desc then
           desc = 'LSP: ' .. desc
@@ -41,11 +37,9 @@ return {
       nmap('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
       nmap('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
 
-      -- See `:help K` for why this keymap
       nmap('K', vim.lsp.buf.hover, 'Hover Documentation')
       nmap('<C-k>', vim.lsp.buf.signature_help, 'Signature Documentation')
 
-      -- Lesser used LSP functionality
       nmap('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
       nmap('<leader>D', vim.lsp.buf.type_definition, 'Type [D]efinition')
       nmap('<leader>wa', vim.lsp.buf.add_workspace_folder, '[W]orkspace [A]dd Folder')
@@ -54,100 +48,55 @@ return {
         print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
       end, '[W]orkspace [L]ist Folders')
 
-      -- Create a command `:Format` local to the LSP buffer
       vim.api.nvim_buf_create_user_command(bufnr, 'Format', vim.lsp.buf.format or vim.lsp.buf.formatting,
         { desc = 'Format current buffer with LSP' })
     end
 
-
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
+    -- nvim 0.11+ / mason-lspconfig 2.x: extend nvim-lspconfig defaults, no lspconfig.setup() or setup_handlers
+    for _, name in ipairs(servers) do
+      if name == "lua_ls" then
+        vim.lsp.config(name, {
+          capabilities = capabilities,
+          on_attach = on_attach,
+          settings = {
+            Lua = {
+              workspace = { checkThirdParty = false },
+              diagnostics = { globals = { 'vim' } },
+            }
+          }
+        })
+      else
+        vim.lsp.config(name, {
+          capabilities = capabilities,
+          on_attach = on_attach,
+        })
+      end
+    end
+
     require("mason").setup()
-    local mason_lspconfig = require("mason-lspconfig")
-    mason_lspconfig.setup {
+    require("mason-lspconfig").setup({
       ensure_installed = servers,
-    }
+      -- Do not call vim.lsp.enable(); use :LspStart <name> (or <leader>l) when you want a server
+      automatic_enable = false,
+    })
 
-    -- mason_lspconfig.setup_handlers {
-    --   -- The first entry (without a key) will be the default handler
-    --   -- and will be called for each installed server that doesn't have
-    --   -- a dedicated handler.
-    --   function(server_name) -- default handler (optional)
-    --     require("lspconfig")[server_name].setup {
-    --       on_attach = on_attach,
-    --       autostart = true,
-    --       capabilities = capabilities,
-    --     }
-    --   end,
-
-    --   -- disable java, too much memory usage by default
-    --   ["jdtls"] = function()
-    --     require("lspconfig")["jdtls"].setup {
-    --       on_attach = on_attach,
-    --       autostart = false,
-    --       capabilities = capabilities,
-    --     }
-    --   end,
-
-    --   ["groovy-language-server"] = function()
-    --     require("lspconfig")["groovy-language-server"].setup {
-    --       on_attach = on_attach,
-    --       autostart = false,
-    --       capabilities = capabilities,
-    --     }
-    --   end,
-    --   ["lua_ls"] = function()
-    --     require("lspconfig")["lua_ls"].setup {
-    --       on_attach = on_attach,
-    --       autostart = true,
-    --       capabilities = capabilities,
-    --       settings = {
-    --         Lua = {
-    --           diagnostics = { globals = { 'vim' } }
-    --         }
-    --       }
-    --     }
-    --   end,
-    --   ["rust_analyzer"] = function()
-    --     require("lspconfig")["rust_analyzer"].setup {
-    --       on_attach = on_attach,
-    --       autostart = true,
-    --       capabilities = capabilities,
-    --       settings = {
-    --         Lua = {
-    --           diagnostics = { globals = { 'vim' } }
-    --         }
-    --       }
-    --     }
-    --   end,
-    -- }
-    -- require('neodev').setup()
     require("mason-null-ls").setup({
-      ensure_installed = {
-        -- Opt to list sources here, when available in mason.
-      },
+      ensure_installed = {},
       automatic_installation = false,
       automatic_setup = true,
     })
     require("null-ls").setup({
-      sources = {
-      }
+      sources = {}
     })
 
-    -- require 'mason-null-ls'.setup_handlers()
-
-    -- require("mason-nvim-dap").setup({
-    --   automatic_setup = true,
-    -- })
-    -- require 'mason-nvim-dap'.setup_handlers {}
-    -- nvim-cmp setup
     local cmp = require 'cmp'
-
-
     cmp.setup {
       snippet = {
         expand = function(args)
+          luasnip.lsp_expand(args.body)
         end,
       },
       mapping = cmp.mapping.preset.insert {
@@ -178,10 +127,21 @@ return {
         end, { 'i', 's' }),
       },
       sources = {
-        -- { name = 'nvim_lsp' },
-        -- { name = 'luasnip' },
-        -- { name = 'copilot' }
+        { name = 'nvim_lsp' },
+        { name = 'luasnip' },
       },
     }
+
+    vim.keymap.set("n", "<leader>l", function()
+      vim.ui.input({ prompt = "LspStart " }, function(name)
+        if not name or not name:match("%S") then
+          return
+        end
+        local ok, err = pcall(vim.cmd, "LspStart " .. name)
+        if not ok then
+          vim.notify(tostring(err), vim.log.levels.ERROR)
+        end
+      end)
+    end, { desc = "Prompt for :LspStart <server>" })
   end
 }
