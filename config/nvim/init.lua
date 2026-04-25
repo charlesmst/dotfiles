@@ -81,7 +81,14 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 
 vim.keymap.set('n', '<leader>w', ":w<CR>")
-vim.keymap.set('n', '<leader>q', ":q<CR>")
+vim.keymap.set('n', '<leader>q', function()
+  if pcall(vim.cmd, "qa") then
+    return
+  end
+  if vim.fn.confirm("Quit Neovim? All unsaved changes will be discarded.", "&Yes\n&No", 2, "Warning") == 1 then
+    vim.cmd("qa!")
+  end
+end, { desc = "Quit Neovim (qa! if blocked by unsaved buffers)" })
 vim.keymap.set({'i', 'v'}, 'kj', "<esc>")
 
 -- vim.keymap.set('n', '<leader>e', ":NvimTreeFindFileToggle<CR>")
