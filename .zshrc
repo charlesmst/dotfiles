@@ -49,8 +49,13 @@ compinit -C -d "${ZDOTDIR:-$HOME}/.zcompdump"
 zsh_add_file zsh_completions.zsh
 source ~/.secrets.sh
 
+# Optional: work / machine zsh: $DOTFILES_ROOT/private/init.zsh (e.g. private submodule). Template: config/zsh/private.init.zsh.example
+: "${DOTFILES_ROOT:=$HOME/personal/dotfiles}"
+[[ -f "$DOTFILES_ROOT/private/init.zsh" ]] && . "$DOTFILES_ROOT/private/init.zsh"
+
 export EDITOR=nvim
-export AWS_PROFILE=dev
+# Do not clobber AWS_PROFILE from secrets / private; default only if unset
+export AWS_PROFILE="${AWS_PROFILE:-dev}"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	zsh_add_file zsh_path_mac.zsh

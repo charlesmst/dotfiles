@@ -1,0 +1,6 @@
+# Copy to your private dotfiles clone as private/init.zsh (see ~/.zshrc + DOTFILES_ROOT).
+# Put work aliases, AWS env (non-token), nvm/mise, RDS helpers, and TLS path exports here.
+# Keep only API tokens in ~/.secrets.sh
+#
+#   cp config/zsh/private.init.zsh.example private/init.zsh
+#   # then trim or merge with your existing private/init.zsh
