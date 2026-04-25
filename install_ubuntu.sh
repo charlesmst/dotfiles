@@ -9,9 +9,7 @@ sudo apt install -y build-essential git
 
 
 # Install packages using apt
-apt_software="git make node-typescript xclip liba52-0.7.4 libfaac0 libfaad2 libflac8 libmp3lame0 libdca0 libdv4 libmad0 libmpeg2-4 libtheora0 libvorbis0a libvorbisenc2 libvorbisfile3 libxv1 wavpack x264 fzf tmux zsh bat unzip xdg-utils jq neovim thefuck pgcli gh ripgrep  docker-compose fonts-firacode "
-
-git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
+apt_software="git make node-typescript xclip liba52-0.7.4 libfaac0 libfaad2 libflac8 libmp3lame0 libdca0 libdv4 libmad0 libmpeg2-4 libtheora0 libvorbis0a libvorbisenc2 libvorbisfile3 libxv1 wavpack x264 fzf tmux zsh bat unzip xdg-utils jq neovim pgcli gh ripgrep  docker-compose fonts-firacode "
 
 LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
 curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"

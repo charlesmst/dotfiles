@@ -35,22 +35,19 @@ zsh_add_file zsh_vi_mode.zsh
 
 zsh_add_file zsh_alias.zsh
 
-# Plugins
+# Plugins (zsh-syntax-highlighting must be loaded last; see below)
 zsh_add_plugin "zsh-users/zsh-autosuggestions"
-zsh_add_plugin "zsh-users/zsh-syntax-highlighting"
 zsh_add_plugin "unixorn/fzf-zsh-plugin"
 
 # Fix vi mode copy not using system clipboard
 zsh_add_plugin "kutsan/zsh-system-clipboard"
 typeset -g ZSH_SYSTEM_CLIPBOARD_TMUX_SUPPORT='true'
 
-compinit
+# -C: skip compaudit for speed; still use a dump file. Delete ~/.zcompdump if completion acts stale.
+compinit -C -d "${ZDOTDIR:-$HOME}/.zcompdump"
 
 zsh_add_file zsh_completions.zsh
 source ~/.secrets.sh
-
-eval $(thefuck --alias)
-
 
 export EDITOR=nvim
 export AWS_PROFILE=dev
@@ -61,14 +58,12 @@ else
 	zsh_add_file zsh_path_linux.zsh
 fi
 
-if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+if [[ -f /proc/version ]] && grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
 	zsh_add_file zsh_wsl.zsh
 fi
 
-
-. "$HOME/.local/bin/env"
-# opencode
-export PATH=/home/charlesstein/.opencode/bin:$PATH
+[[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
+export PATH="${HOME}/.opencode/bin:${PATH}"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
@@ -77,3 +72,5 @@ export SDKMAN_DIR="$HOME/.sdkman"
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+zsh_add_plugin "zsh-users/zsh-syntax-highlighting"

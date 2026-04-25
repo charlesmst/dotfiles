@@ -173,8 +173,8 @@ backup_if_exists "$HOME/.git-credentials" "$BACKUP_DIR/git/git-credentials" "Git
 
 log "=== Backing up Development tools ==="
 
-# asdf tool versions
-backup_if_exists "$HOME/.tool-versions" "$BACKUP_DIR/dev/tool-versions" "asdf tool versions"
+# mise / asdf-legacy .tool-versions
+backup_if_exists "$HOME/.tool-versions" "$BACKUP_DIR/dev/tool-versions" "mise / .tool-versions"
 
 # npm config
 backup_if_exists "$HOME/.npmrc" "$BACKUP_DIR/dev/npmrc" "npm config"

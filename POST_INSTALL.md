@@ -168,21 +168,14 @@ cat ~/Migration_Backup/vscode/extensions.txt | xargs -L 1 code --install-extensi
 
 ## 5. Development Environment Setup
 
-### Verify asdf tools
+### Verify mise (and brew/apt CLIs)
 ```bash
-asdf list
+mise --version
+mise ls
 ```
 
-Expected tools:
-- [ ] kubectl
-- [ ] helm
-- [ ] nodejs
-- [ ] golang
-- [ ] terraform
-- [ ] vault
-- [ ] rust
-- [ ] redis
-- [ ] java
+- [ ] Tools you use are listed / install with `mise install` as needed
+- [ ] `brew list` / `apt list --installed` as appropriate on that OS
 
 ### Neovim
 - [ ] Open Neovim: `nvim`
@@ -194,7 +187,6 @@ Expected tools:
 - [ ] Close and reopen terminal
 - [ ] Verify zsh plugins are working
 - [ ] Test fzf: `Ctrl+R` for history search
-- [ ] Test thefuck: `fuck` command
 - [ ] Verify PATH includes all necessary directories
 
 ---
@@ -322,12 +314,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 eval "$(/usr/local/bin/brew shellenv)"
 ```
 
-**Issue: asdf command not found**
+**Issue: mise command not found**
 ```bash
-# Add to ~/.zshrc
-. $(brew --prefix asdf)/libexec/asdf.sh
-
-# Then restart terminal
+brew install mise   # macOS; see https://mise.jdx.dev for other OS
 ```
 
 ---

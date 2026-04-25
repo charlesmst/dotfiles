@@ -52,7 +52,7 @@ Complete list of everything backed up by `backup_before_migration.sh`.
     │   └── brew-taps.txt           # List of tapped repositories
     │
     ├── dev/                         # Development tools
-    │   ├── tool-versions           # asdf tool versions
+    │   ├── tool-versions           # mise / legacy .tool-versions
     │   ├── npmrc                   # npm configuration
     │   ├── npm-global-packages.txt # NPM global packages
     │   └── pip-packages.txt        # Python pip packages
@@ -121,7 +121,7 @@ Complete list of everything backed up by `backup_before_migration.sh`.
 | Item | Location | Description | Notes |
 |------|----------|-------------|-------|
 | **Git Config** | `git/gitconfig` | User name, email, signing key, aliases | Required for commits |
-| **Tool Versions** | `dev/tool-versions` | asdf managed tool versions | Restore before running asdf |
+| **Tool Versions** | `dev/tool-versions` | mise / `.tool-versions` (legacy) | Restore before `mise install` in projects |
 | **Homebrew Brewfile** | `homebrew/Brewfile` | **Complete list of all installed packages** | Run `brew bundle install` |
 | **npm Config** | `dev/npmrc` | npm registry, auth tokens, settings | Contains sensitive data |
 | **NPM Packages** | `dev/npm-global-packages.txt` | Global npm packages list | Manual install |

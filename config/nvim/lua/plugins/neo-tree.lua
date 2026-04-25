@@ -187,7 +187,6 @@ return {
           always_show = {   -- remains visible even if other settings would normally hide it
             ".gitignored",
             ".editorconfig",
-            ".asdf",
             ".tool-versions",
             ".sdkman-rc",
             ".github",

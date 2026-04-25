@@ -37,7 +37,7 @@ This repository contains:
 - **Shell configuration** (Zsh with custom plugins)
 - **Neovim configuration** (Lua-based)
 - **Terminal configuration** (Alacritty, iTerm2, tmux)
-- **Development tools** (asdf, Homebrew packages)
+- **Development tools** (mise, Homebrew packages, apt where applicable)
 - **Keyboard customization** (Karabiner-Elements)
 - **Automated installation scripts** for macOS and Linux
 - **Backup and restore scripts** for machine migration
@@ -87,7 +87,7 @@ Main installation script for macOS. Installs and configures:
 - Xcode Command Line Tools
 - Homebrew and packages (from Brewfile)
 - Nerd Fonts (JetBrains Mono, Fira Code, DejaVu)
-- asdf version manager + plugins
+- mise (see Brewfile)
 - Oh My Tmux
 - Neovim with Paq package manager
 - Karabiner-Elements configuration
@@ -113,7 +113,7 @@ Creates comprehensive backup of your current machine configuration.
 
 **What's backed up:**
 - 🔴 GPG & SSH keys
-- 💻 Development tools (Homebrew Brewfile, asdf versions, npm/pip packages)
+- 💻 Development tools (Homebrew Brewfile, mise / `.tool-versions`, npm/pip packages)
 - ⚙️ Application settings (VSCode, DBeaver, Postman, etc.)
 - 🐚 Shell history & configs
 - ☁️ AWS, Kubernetes, Docker configs
@@ -184,7 +184,7 @@ The backup script creates a comprehensive backup organized in subdirectories:
 └── backup_YYYYMMDD_HHMMSS/   # Timestamped backup
     ├── critical/              # GPG & SSH keys
     ├── homebrew/              # Complete Brewfile + package lists
-    ├── dev/                   # npm, pip, asdf configs
+    ├── dev/                   # npm, pip, mise tool-version backups
     ├── vscode/                # Settings, extensions, snippets
     ├── app_preferences/       # DBeaver, Postman, Karabiner, etc.
     ├── aws/                   # AWS credentials & config
@@ -262,20 +262,9 @@ nvim
 - Custom key bindings
 - Status bar configuration
 
-### Development Tools (asdf)
+### Development tools (mise, Homebrew, apt)
 
-**Installed via `asdf.sh`:**
-
-| Tool       | Version(s)                         |
-|------------|-----------------------------------|
-| kubectl    | 1.24.3                            |
-| helm       | 2.14.3                            |
-| nodejs     | 16.16.0                           |
-| golang     | 1.18.3                            |
-| terraform  | 0.11.11, 0.12.21, 0.13.6, 1.0.0   |
-| rust       | 1.63.0                            |
-| java       | openjdk-17.0.2                    |
-| redis      | 7.0.8                             |
+Use **mise** for per-project runtimes (`.mise.toml` / `.tool-versions`), **Homebrew** on macOS (`Brewfile`), and **apt** on Ubuntu where the install scripts pull packages. Install tools with `mise install`, `brew install`, or your distro package manager.
 
 ### Homebrew Packages
 
@@ -340,7 +329,6 @@ dotfiles/
 ├── macos_preferences.sh               # macOS system preferences
 │
 ├── create_links.sh                    # Create symlinks
-├── asdf.sh                            # Install asdf plugins
 │
 ├── config/
 │   ├── alacritty/                     # Alacritty terminal config
@@ -388,7 +376,7 @@ dotfiles/
    - Edit `.zshrc` for shell preferences
    - Modify `config/nvim/init.lua` for Neovim
    - Update `Brewfile` to add/remove packages
-   - Edit `asdf.sh` for different tool versions
+   - Use `mise`, `brew`, or `apt` for language runtimes and CLIs
 
 3. **Add private configs:**
    - Create `private/` directory for sensitive files
@@ -433,9 +421,10 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 eval "$(/usr/local/bin/brew shellenv)"
 ```
 
-#### asdf not found
+#### mise not found
 ```bash
-. $(brew --prefix asdf)/libexec/asdf.sh
+brew install mise   # macOS
+# See https://mise.jdx.dev for Linux install
 ```
 
 #### Symlinks not working
@@ -504,13 +493,11 @@ brew upgrade
 brew cleanup
 ```
 
-### Updating asdf Tools
+### Updating mise tools
 
 ```bash
-asdf plugin update --all
-asdf list all nodejs  # See available versions
-asdf install nodejs 18.0.0
-asdf global nodejs 18.0.0
+mise upgrade
+mise ls
 ```
 
 ### Backing Up Your Configurations

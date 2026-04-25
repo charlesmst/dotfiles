@@ -18,7 +18,7 @@
 #   - target path is inside a git worktree (git-dir != git-common-dir)
 #   - target worktree has not been laid out before (marker file absent)
 #
-# Also runs `mise trust` once if a mise/asdf config is present.
+# Also runs `mise trust` once if a mise config is present.
 
 set -uo pipefail
 

@@ -216,36 +216,6 @@ else
 fi
 
 # ============================================================================
-# ASDF VERSION MANAGER
-# ============================================================================
-
-log_step "Setting up asdf version manager..."
-
-if command_exists asdf; then
-    log_success "asdf already installed"
-else
-    log "Installing asdf via Homebrew..."
-    brew install asdf || error_exit "Failed to install asdf"
-
-    # Add asdf to shell
-    echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> "$HOME/.zshrc"
-    . $(brew --prefix asdf)/libexec/asdf.sh
-
-    log_success "asdf installed"
-fi
-
-# Install asdf plugins and tools
-if [ -f "$DOTFILES_DIR/asdf.sh" ]; then
-    log "Installing asdf plugins and tools..."
-    log_warning "This may take a while (10-30 minutes)..."
-    cd "$DOTFILES_DIR"
-    bash ./asdf.sh || log_warning "Some asdf tools may have failed to install"
-    log_success "asdf plugins and tools installed"
-else
-    log_warning "asdf.sh not found"
-fi
-
-# ============================================================================
 # OH MY TMUX
 # ============================================================================
 
@@ -368,7 +338,7 @@ tools=(
     "tmux"
     "fzf"
     "gh"
-    "asdf"
+    "mise"
 )
 
 failed_tools=()
@@ -423,7 +393,7 @@ echo ""
 echo "5. ${YELLOW}Test your setup:${NC}"
 echo "   - Test SSH: ssh -T git@github.com"
 echo "   - Test GPG: echo 'test' | gpg --clearsign"
-echo "   - Test asdf: asdf list"
+echo "   - Test mise: mise --version"
 echo ""
 echo "6. ${YELLOW}Review POST_INSTALL.md${NC} for additional manual steps"
 echo ""

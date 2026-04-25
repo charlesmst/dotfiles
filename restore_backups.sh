@@ -194,7 +194,7 @@ fi
 
 log_step "Restoring development tool configurations..."
 
-restore_if_exists "$BACKUP_DIR/dev/tool-versions" "$HOME/.tool-versions" "asdf tool versions"
+restore_if_exists "$BACKUP_DIR/dev/tool-versions" "$HOME/.tool-versions" "mise / .tool-versions"
 
 # npm config
 restore_if_exists "$BACKUP_DIR/dev/npmrc" "$HOME/.npmrc" "npm config"
