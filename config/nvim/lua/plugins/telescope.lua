@@ -44,11 +44,26 @@ return {
     end, { desc = '[/] Fuzzily search in current buffer]' })
 
     local builtin = require('telescope.builtin')
-    vim.keymap.set('n', '<leader>p', builtin.find_files, { desc = '[S]earch [F]iles' })
-    vim.keymap.set('n', '<leader>P', builtin.find_files, { desc = '[S]earch [F]iles hidden' })
+    -- Default: respect .gitignore; no dotfiles in root unless listed.
+    vim.keymap.set('n', '<leader>p', function()
+      builtin.find_files()
+    end, { desc = '[S]earch [F]iles' })
+
+    -- Hidden dotfiles (still respects .gitignore; add no_ignore=true to search ignored paths too)
+    vim.keymap.set('n', '<leader>P', function()
+      builtin.find_files { hidden = true }
+    end, { desc = '[S]earch [F]iles (include hidden)' })
+
     vim.keymap.set('n', '<leader>fh', builtin.help_tags, { desc = '[S]earch [H]elp' })
     vim.keymap.set('n', '<leader>fw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
+
     vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
+    -- Ripgrep: search in hidden files; optional glob keeps .git small
+    vim.keymap.set('n', '<leader>fG', function()
+      builtin.live_grep {
+        additional_args = { '--hidden', '--glob', '!.git/*' },
+      }
+    end, { desc = '[S]earch by [G]rep (hidden files)' })
     vim.keymap.set('n', '<leader>fd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
 
     -- Specialized Switcher function
