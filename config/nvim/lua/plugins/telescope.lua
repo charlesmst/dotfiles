@@ -43,11 +43,28 @@ return {
       })
     end, { desc = '[/] Fuzzily search in current buffer]' })
 
-    vim.keymap.set('n', '<leader>p', require('telescope.builtin').find_files, { desc = '[S]earch [F]iles' })
-    vim.keymap.set('n', '<leader>P', require('telescope.builtin').find_files, { desc = '[S]earch [F]iles hidden' })
-    vim.keymap.set('n', '<leader>fh', require('telescope.builtin').help_tags, { desc = '[S]earch [H]elp' })
-    vim.keymap.set('n', '<leader>fw', require('telescope.builtin').grep_string, { desc = '[S]earch current [W]ord' })
-    vim.keymap.set('n', '<leader>fg', require('telescope.builtin').live_grep, { desc = '[S]earch by [G]rep' })
-    vim.keymap.set('n', '<leader>fd', require('telescope.builtin').diagnostics, { desc = '[S]earch [D]iagnostics' })
+    local builtin = require('telescope.builtin')
+    vim.keymap.set('n', '<leader>p', builtin.find_files, { desc = '[S]earch [F]iles' })
+    vim.keymap.set('n', '<leader>P', builtin.find_files, { desc = '[S]earch [F]iles hidden' })
+    vim.keymap.set('n', '<leader>fh', builtin.help_tags, { desc = '[S]earch [H]elp' })
+    vim.keymap.set('n', '<leader>fw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
+    vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
+    vim.keymap.set('n', '<leader>fd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
+
+    -- Specialized Switcher function
+    local function intellij_switcher()
+        builtin.buffers(require('telescope.themes').get_dropdown({
+            sort_mru = true,
+            ignore_current_buffer = true,
+            previewer = false,       -- IntelliJ doesn't usually show a preview in the switcher
+            initial_mode = "normal",  -- Start in normal mode to use j/k immediately
+            layout_config = {
+                width = 0.6,
+                prompt_position = "top",
+            },
+        }))
+    end
+
+    vim.keymap.set('n', '<leader>b', intellij_switcher)
   end
 }
