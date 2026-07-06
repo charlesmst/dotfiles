@@ -1,0 +1,14 @@
+{
+  "name": "agent-view",
+  "owner": {
+    "name": "Charles Stein",
+    "email": "charles.mst@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "agent-view",
+      "source": "./claude",
+      "description": "Marks tmux panes pending/clear for the agent-view Exposé picker"
+    }
+  ]
+}

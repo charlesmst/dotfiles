@@ -1,5 +1,14 @@
 # agent-attention
 
+> **Partially superseded by [`agent-view`](../../agent-view/README.md).**
+> `prefix + a` now opens the agent-view Exposé TUI, and the pending
+> markers are written by `agent-view event ...` (same state directory, so
+> both systems interoperate). Still active from this directory:
+> auto-naming (`auto-name.sh`, `sync-tmux-name.sh`), macOS notifications
+> (`notify-if-unfocused.sh`), and the status bar (`status.sh`).
+> `picker.sh`, `mark-*.sh`, `clear*.sh` are legacy — kept only so old
+> hook configs on other machines don't break until re-installed.
+
 Unified tmux integration for tracking **Claude Code**, **Cursor CLI**, and **Codex CLI** sessions across all your tmux panes:
 
 - `prefix + a` opens an fzf picker over every live agent session, mapped to its tmux pane

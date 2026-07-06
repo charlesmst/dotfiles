@@ -401,14 +401,12 @@ unbind -n C-p
 bind-key p display-popup -E "~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 bind-key t switch-client -l
 
-# -- agent-attention: picker for Claude / Cursor / Codex CLI panes ------------
-# prefix + a opens the picker; pane-focus-in clears the "unread" marker and
-# warms the picker + sessionizer caches (no-op if cache is < 5s old).
+# -- agent-view: Exposé grid over Claude / Cursor / Codex CLI panes -----------
+# prefix + a opens the TUI (see agent-view/README.md); pane-focus-in clears
+# the pending marker for the pane you just looked at.
 set -g focus-events on
-set-hook -g pane-focus-in 'run-shell "~/personal/dotfiles/tmux/agent-attention/clear.sh #{pane_id}"'
-# set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
-# set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
-bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/agent-attention/picker.sh"
+set-hook -g pane-focus-in 'run-shell -b "$HOME/.local/bin/agent-view event clear --pane #{pane_id}"'
+bind-key a display-popup -E -w 90% -h 85% "$HOME/.local/bin/agent-view"
 # -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
 # bash

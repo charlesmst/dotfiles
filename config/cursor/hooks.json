@@ -9,14 +9,11 @@
     "sessionEnd": [
       {
         "command": "bash ~/.cursor/hooks/clear-session-meta.sh"
-      },
-      {
-        "command": "bash ~/personal/dotfiles/tmux/agent-attention/clear-working.sh"
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "bash ~/personal/dotfiles/tmux/agent-attention/mark-working.sh"
+        "command": "\"$HOME/.local/bin/agent-view\" event clear"
       },
       {
         "command": "AGENT=cursor bash ~/personal/dotfiles/tmux/agent-attention/auto-name.sh"
@@ -27,7 +24,7 @@
     ],
     "stop": [
       {
-        "command": "bash ~/personal/dotfiles/tmux/agent-attention/clear-working.sh"
+        "command": "\"$HOME/.local/bin/agent-view\" event pending --agent cursor --unless-focused --message \"Turn finished — awaiting your input\""
       },
       {
         "command": "AGENT=cursor bash ~/personal/dotfiles/config/agent-shared/notify-if-unfocused.sh"

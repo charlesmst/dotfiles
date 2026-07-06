@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "\"$HOME/.local/bin/agent-view\" event clear"
+      }
+    ],
+    "stop": [
+      {
+        "command": "\"$HOME/.local/bin/agent-view\" event pending --agent cursor --unless-focused --message \"Turn finished — awaiting your input\""
+      }
+    ]
+  }
+}

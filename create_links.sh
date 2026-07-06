@@ -50,4 +50,13 @@ ln -fs "$(pwd)/config/cursor/hooks/clear-session-meta.sh" "$HOME/.cursor/hooks/c
 # Shared state directory used by tmux/agent-attention (markers + picker cache).
 mkdir -p "$HOME/.local/state/agent-attention/pending" "$HOME/.local/state/agent-attention/working"
 
+# agent-view: prefix+a Exposé TUI over agent panes. Installs the CLI into
+# ~/.local/bin via uv and wires the Claude plugin / Cursor hooks / Codex
+# notify config (idempotent). See agent-view/README.md.
+if command -v uv >/dev/null 2>&1; then
+	uv run --project "$(pwd)/agent-view" agent-view install
+else
+	echo "WARNING: uv not found — skipping agent-view install (https://docs.astral.sh/uv/)"
+fi
+
 
