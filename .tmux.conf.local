@@ -401,7 +401,7 @@ unbind -n C-p
 bind-key p display-popup -E "~/personal/dotfiles/tmux/tmux-sessionizer.sh"
 bind-key t switch-client -l
 
-# -- agent-attention: picker for Claude / Cursor CLI panes needing attention ---
+# -- agent-attention: picker for Claude / Cursor / Codex CLI panes ------------
 # prefix + a opens the picker; pane-focus-in clears the "unread" marker and
 # warms the picker + sessionizer caches (no-op if cache is < 5s old).
 set -g focus-events on

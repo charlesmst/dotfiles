@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-fzf picker over tmux panes running Claude or Cursor CLI agents.
+fzf picker over tmux panes running Claude, Cursor, or Codex CLI agents.
 Source of truth: tmux list-panes + a single ps snapshot — no session JSON files.
 
 States:
   ●  yellow = pending (Notification hook fired; needs attention)
   blank     = running or idle
-Agent badge: C cyan = Claude Code, ✦ magenta = Cursor CLI.
+Agent badge: C cyan = Claude Code, ✦ magenta = Cursor CLI, X green = Codex.
 Ctrl-D: kill the agent process.  Ctrl-R: refresh.
 """
 import os
+import shlex
 import subprocess
 import sys
 
@@ -22,12 +23,14 @@ PENDING_DIR = os.path.join(AGENT_ATTENTION_DIR, 'pending')
 C_YELLOW  = '\033[33m'
 C_CYAN    = '\033[36m'
 C_MAGENTA = '\033[35m'
+C_GREEN   = '\033[32m'
 C_RESET   = '\033[0m'
 
 # basename of the executable → (display-kind, badge-string)
 AGENT_NAMES = {
     'claude':       ('claude', f'{C_CYAN}C{C_RESET}'),
     'cursor-agent': ('cursor', f'{C_MAGENTA}✦{C_RESET}'),
+    'codex':        ('codex', f'{C_GREEN}X{C_RESET}'),
 }
 
 
@@ -35,6 +38,39 @@ def fit(s: str, w: int) -> str:
     if len(s) > w:
         return s[:w - 1] + '…'
     return s.ljust(w)
+
+
+def split_cmd(cmd: str) -> list[str]:
+    try:
+        return shlex.split(cmd)
+    except ValueError:
+        return cmd.split()
+
+
+def normalize_agent_name(cmd: str) -> str:
+    args = split_cmd(cmd)
+    exe = args[0] if args else ''
+    name = os.path.basename(exe)
+
+    if name in AGENT_NAMES:
+        return name
+
+    # cursor-agent runs as a wrapper script (bash/sh) or as the bundled
+    # "agent" binary (~/.local/bin/agent .../cursor-agent/versions/...).
+    # Neither basename matches "cursor-agent" — detect via full cmdline.
+    if name in ('bash', 'sh', 'zsh', 'agent') and 'cursor-agent' in cmd:
+        return 'cursor-agent'
+
+    # The npm-installed Codex CLI appears as a Node wrapper:
+    #   node /usr/local/bin/codex ...
+    # with a child process whose executable basename is "codex". Detect the
+    # wrapper too so Ctrl-D targets the top-level CLI process.
+    if name == 'node' and len(args) > 1:
+        script = args[1]
+        if os.path.basename(script) == 'codex' or '@openai/codex' in script:
+            return 'codex'
+
+    return name
 
 
 def get_panes() -> list[dict]:
@@ -59,11 +95,7 @@ def get_panes() -> list[dict]:
 
 
 def get_process_tree() -> tuple[dict, dict]:
-    """Returns (children: pid→[pid], comm_of: pid→agent-basename-or-name).
-
-    Uses the full command line so we can detect cursor-agent, which is a bash
-    script and shows up as 'bash' in the short comm field.
-    """
+    """Returns (children: pid→[pid], comm_of: pid→agent-basename-or-name)."""
     out = subprocess.run(
         ['ps', '-A', '-o', 'pid=,ppid=,command='],
         capture_output=True, text=True,
@@ -76,14 +108,7 @@ def get_process_tree() -> tuple[dict, dict]:
             continue
         pid, ppid = int(parts[0]), int(parts[1])
         cmd = parts[2] if len(parts) > 2 else ''
-        exe = cmd.split()[0] if cmd else ''
-        name = os.path.basename(exe)
-        # cursor-agent runs as a wrapper script (bash/sh) or as the bundled
-        # "agent" binary (~/.local/bin/agent .../cursor-agent/versions/...).
-        # Neither basename matches "cursor-agent" — detect via full cmdline.
-        if name in ('bash', 'sh', 'zsh', 'agent') and 'cursor-agent' in cmd:
-            name = 'cursor-agent'
-        comm_of[pid] = name
+        comm_of[pid] = normalize_agent_name(cmd)
         children.setdefault(ppid, []).append(pid)
     return children, comm_of
 

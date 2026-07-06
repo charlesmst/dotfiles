@@ -1,6 +1,6 @@
 # agent-attention
 
-Unified tmux integration for tracking **Claude Code** and **Cursor CLI** sessions across all your tmux panes:
+Unified tmux integration for tracking **Claude Code**, **Cursor CLI**, and **Codex CLI** sessions across all your tmux panes:
 
 - `prefix + a` opens an fzf picker over every live agent session, mapped to its tmux pane
 - Status bar shows `⠿ N` (working) and `● N` (needs attention) counts
@@ -17,11 +17,11 @@ Unified tmux integration for tracking **Claude Code** and **Cursor CLI** session
 +-------------------------------------------------------+
 ```
 
-`C` cyan = Claude. `✦` magenta = Cursor CLI.
+`C` cyan = Claude. `✦` magenta = Cursor CLI. `X` green = Codex CLI.
 
 ## How it works
 
-Both agents support hooks. We register the same set of events on each side and they all share one tiny shell script library + one shared state directory.
+Claude and Cursor support hooks. We register the same set of events on each side and they all share one tiny shell script library + one shared state directory. Codex is currently picker-only: live Codex panes are discovered from the tmux and `ps` process tree without hooks.
 
 | Concept | Claude | Cursor CLI |
 |---|---|---|
@@ -134,6 +134,7 @@ bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/agent-attent
 - `afplay` (macOS, built-in) — alert sound at `~/.claude/sounds/fahhh.mp3`
 - `claude` (Anthropic Claude Code CLI) — for auto-naming Claude sessions
 - `cursor-agent` (Cursor CLI) — for auto-naming Cursor sessions
+- `codex` (OpenAI Codex CLI) — shown in the picker when running in a tmux pane
 
 ## Picker UX
 
@@ -145,7 +146,7 @@ bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/agent-attent
 | `Ctrl-R` | Force-refresh the cache |
 | `Esc` / `Ctrl-C` | Close without action |
 
-The cyan spinner is animated by an fzf `--listen` reload loop. The picker reads `~/.claude/sessions/*.json` and `~/.cursor/sessions/*.json` (both compact JSON), confirms each PID is alive, walks parent PIDs to find the matching tmux pane, then sorts pending → working → idle.
+The picker scans `tmux list-panes` plus one `ps` snapshot, finds live Claude/Cursor/Codex agent processes under each pane, then sorts pending → working → idle.
 
 ## Behavioral details
 
@@ -159,6 +160,7 @@ The cyan spinner is animated by an fzf `--listen` reload loop. The picker reads 
   ```bash
   echo '{"conversation_id":"<sid>","cwd":"<cwd>"}' | bash ~/.cursor/hooks/write-session-meta.sh
   ```
+- **Codex detection.** Codex is discovered directly from live processes. The picker recognizes both the npm Node wrapper (`node .../bin/codex`) and the child Codex binary.
 
 ## State directory
 
@@ -177,3 +179,4 @@ Wipe with `rm -rf ~/.local/state/agent-attention/*` if anything gets stuck.
 - macOS only (uses `terminal-notifier`, `afplay`, `osascript`, `stat -f %m`).
 - Cursor has no `Notification` event, so Cursor only notifies on `stop`. If Cursor pops a permission dialog mid-task, you won't get an alert.
 - Cursor `auto-name.sh` invocations take 15-30s per first prompt (composer-2-fast cold start). Backgrounded so it doesn't block, but the rename arrives one prompt late.
+- Codex panes are picker-only for now, so they do not contribute pending/working markers, notifications, or auto-naming.
