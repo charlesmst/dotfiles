@@ -25,15 +25,6 @@ esac
 
 CLAUDE_PANE="${TMUX_PANE}"
 
-if [ -z "$CLAUDE_PANE" ]; then
-    terminal-notifier \
-        -title "$APP_TITLE" \
-        -message "Needs your attention" \
-        -sound "" \
-        &>/dev/null &
-    [ -r "$SOUND_FILE" ] && afplay -v 0.2 "$SOUND_FILE" &
-    exit 0
-fi
 
 PANE_INFO=$(tmux display-message -t "$CLAUDE_PANE" -p '#{session_name}:#{window_index}.#{pane_index}' 2>/dev/null)
 SESSION_NAME=$(tmux display-message -t "$CLAUDE_PANE" -p '#{session_name}' 2>/dev/null)
@@ -60,14 +51,6 @@ if [ "$IS_FOCUSED" = "false" ]; then
     "${HOME}/personal/dotfiles/tmux/agent-attention/mark-pending.sh" "$CLAUDE_PANE" &
     "${HOME}/personal/dotfiles/tmux/agent-attention/refresh-caches.sh" --force &
 
-    terminal-notifier \
-        -title "$APP_TITLE" \
-        -subtitle "Needs your attention" \
-        -message "tmux ${PANE_INFO}" \
-        -sound "" \
-        -execute "bash '${FOCUS_SCRIPT}' '${SESSION_NAME}' '${WINDOW_INDEX}' '${CLAUDE_PANE}'" \
-        &>/dev/null &
-    [ -r "$SOUND_FILE" ] && afplay -v 0.2 "$SOUND_FILE" &
 fi
 
 exit 0
