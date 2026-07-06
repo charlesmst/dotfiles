@@ -58,9 +58,16 @@ def list_panes() -> list[dict]:
     return panes
 
 
-def capture_pane(pane_id: str, lines: int) -> str:
-    """Last ``lines`` lines of a pane with ANSI colors preserved."""
-    out = run("capture-pane", "-ep", "-t", pane_id).stdout
+def capture_pane(pane_id: str, lines: int, include_history: bool = False) -> str:
+    """Last ``lines`` lines of a pane with ANSI colors preserved.
+
+    With ``include_history`` the capture starts ``lines`` above the visible
+    top (scrollback), for previews the user can scroll through.
+    """
+    args = ["capture-pane", "-ep", "-t", pane_id]
+    if include_history:
+        args += ["-S", f"-{lines}"]
+    out = run(*args).stdout
     # Drop trailing blank lines so short sessions don't render as whitespace.
     stripped = out.rstrip("\n").split("\n")
     return "\n".join(stripped[-lines:])

@@ -38,6 +38,17 @@ def test_prune_drops_dead_panes(tmp_path, monkeypatch):
     assert set(state.load_pending()) == {"%1"}
 
 
+def test_view_mode_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
+    assert state.load_view_mode() == "grid"  # default
+    state.save_view_mode("list")
+    assert state.load_view_mode() == "list"
+    state.save_view_mode("nonsense")  # ignored
+    assert state.load_view_mode() == "list"
+    (tmp_path / "view-mode").write_text("garbage")
+    assert state.load_view_mode() == "grid"
+
+
 def test_count_pending(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
     assert state.count_pending() == 0

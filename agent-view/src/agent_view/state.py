@@ -101,3 +101,27 @@ def count_pending() -> int:
         return len(os.listdir(pending_dir()))
     except FileNotFoundError:
         return 0
+
+
+VIEW_MODES = ("grid", "list")
+
+
+def load_view_mode(default: str = "grid") -> str:
+    """Last TUI view mode ('grid' or 'list'); persisted across opens."""
+    try:
+        with open(os.path.join(base_dir(), "view-mode")) as f:
+            mode = f.read().strip()
+        return mode if mode in VIEW_MODES else default
+    except OSError:
+        return default
+
+
+def save_view_mode(mode: str) -> None:
+    if mode not in VIEW_MODES:
+        return
+    try:
+        os.makedirs(base_dir(), exist_ok=True)
+        with open(os.path.join(base_dir(), "view-mode"), "w") as f:
+            f.write(mode)
+    except OSError:
+        pass  # a failed save must never break the TUI

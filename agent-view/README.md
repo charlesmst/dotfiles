@@ -39,13 +39,22 @@ idempotent and re-run by `create_links.sh`.
 
 | Key | Action |
 |---|---|
-| type | fuzzy-filter tiles (session/window/kind) |
+| type | fuzzy-filter agents (session/window/kind) |
 | arrows / tab | move selection |
-| enter / click | jump to the agent's pane |
+| enter / double-click | jump to the agent's pane |
+| ctrl-l | toggle grid ⇄ list view (persists) |
+| pgup / pgdn | scroll the preview (list view; includes scrollback) |
 | ctrl-d | kill the agent process (confirm) |
 | ctrl-k | kill the whole tmux session (confirm) |
 | ctrl-r | refresh now (auto-refreshes every 1s) |
 | esc | clear filter, then quit |
+
+Two views, toggled with `ctrl-l` (the choice is remembered):
+
+- **grid** — Exposé wall of live tiles, one per agent.
+- **list** — compact rows on the left (like the old fzf picker), one large
+  scrollable preview on the right that captures 300 lines of scrollback
+  and follows new output unless you scroll up.
 
 ## States
 

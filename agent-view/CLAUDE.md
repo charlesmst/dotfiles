@@ -31,7 +31,9 @@ state.py      pending markers: the only persistent state
 tmux.py       all tmux subprocess calls; honors AGENT_VIEW_TMUX_ARGS
 fuzzy.py      dependency-free fzf-ish subsequence scorer
 installer.py  wires hook configs into claude/cursor/codex (idempotent)
-tui/app.py    Textual app: grid of AgentTile + filter + confirm modal
+tui/app.py    Textual app: grid of AgentTile / list+preview + filter +
+              confirm modal; ctrl-l toggles views (persisted via
+              state.save_view_mode in the state dir)
 ```
 
 Design invariants — do not break these:

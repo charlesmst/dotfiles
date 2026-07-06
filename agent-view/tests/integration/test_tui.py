@@ -12,11 +12,11 @@ pytestmark = pytest.mark.integration
 
 
 async def _settle(pilot, app: AgentViewApp, min_tiles: int = 0):
-    """Wait for the refresh worker to populate the grid."""
-    deadline = time.time() + 5
+    """Wait until at least one refresh cycle rendered enough agents."""
+    deadline = time.time() + 10
     while time.time() < deadline:
         await pilot.pause(0.1)
-        if len(app.filtered_agents) >= min_tiles and app._tile_order is not None:
+        if app.snapshots_applied > 0 and len(app.filtered_agents) >= min_tiles:
             return
     raise AssertionError("TUI never settled")
 
@@ -197,6 +197,99 @@ async def test_navigation_moves_selection(tmux_server):
         assert app.selected == 0
         await pilot.press("right", "right", "right")
         assert app.selected == 1  # clamped
+
+
+async def test_list_view_toggle_navigation_and_preview(tmux_server):
+    tmux_server.start_agent_session("alpha", "claude")
+    tmux_server.start_agent_session("beta", "codex")
+
+    app = AgentViewApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await _settle(pilot, app, min_tiles=2)
+        assert app.view_mode == "grid"
+
+        await pilot.press("ctrl+l")
+        assert app.view_mode == "list"
+        base = app.screen_stack[0]
+        assert base.query_one("#grid").display is False
+        assert base.query_one("#list-view").display is True
+
+        # Both agents appear as rows in the left panel.
+        panel_text = str(base.query_one("#agent-list").renderable)
+        assert "alpha" in panel_text
+        assert "beta" in panel_text
+
+        # Up/down moves one row at a time; preview follows the selection.
+        assert app.selected == 0
+        first = app.filtered_agents[0]
+        preview = base.query_one("#preview")
+        assert first.location in str(preview.border_title)
+
+        await pilot.press("down")
+        assert app.selected == 1
+        second = app.filtered_agents[1]
+        assert second.location in str(preview.border_title)
+        await pilot.press("up")
+        assert app.selected == 0
+
+        # Preview scrolling keys must not crash (content may be short).
+        await pilot.press("pageup", "pagedown")
+
+        # Filtering still works in list view.
+        await pilot.press("b", "e", "t")
+        assert [a.session for a in app.filtered_agents] == ["beta"]
+        await pilot.press("escape")
+
+        # Toggle back to the grid.
+        await pilot.press("ctrl+l")
+        assert app.view_mode == "grid"
+        await _settle(pilot, app, min_tiles=2)
+        assert len(list(app.query(AgentTile))) == 2
+
+
+async def test_list_view_mode_persists_across_opens(tmux_server):
+    tmux_server.start_agent_session("alpha", "claude")
+
+    app = AgentViewApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await _settle(pilot, app, min_tiles=1)
+        await pilot.press("ctrl+l")
+        assert app.view_mode == "list"
+        await pilot.press("escape")
+
+    app2 = AgentViewApp()
+    async with app2.run_test(size=(140, 40)) as pilot:
+        await _settle(pilot, app2, min_tiles=1)
+        assert app2.view_mode == "list"
+        assert app2.screen_stack[0].query_one("#list-view").display is True
+
+
+async def test_kill_agent_from_list_view(tmux_server):
+    tmux_server.start_agent_session("alpha", "claude")
+    tmux_server.start_agent_session("doomed", "codex")
+
+    app = AgentViewApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await _settle(pilot, app, min_tiles=2)
+        await pilot.press("ctrl+l")
+        target = next(a for a in app.filtered_agents if a.session == "doomed")
+        app.select_pane(target.pane_id)
+
+        await pilot.press("ctrl+d")
+        assert isinstance(app.screen, ConfirmScreen)
+        await pilot.pause(1.2)  # refresh tick with modal over the list view
+        await pilot.press("y")
+
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            await pilot.pause(0.1)
+            try:
+                os.kill(target.agent_pid, 0)
+            except ProcessLookupError:
+                break
+        else:
+            raise AssertionError("agent process still alive")
+        assert app._exit is False
 
 
 async def test_empty_view_shows_message_and_esc_quits(tmux_server):
