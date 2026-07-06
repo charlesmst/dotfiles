@@ -78,9 +78,10 @@ def get_process_tree() -> tuple[dict, dict]:
         cmd = parts[2] if len(parts) > 2 else ''
         exe = cmd.split()[0] if cmd else ''
         name = os.path.basename(exe)
-        # cursor-agent is a shell script — interpreter shows as bash/sh.
-        # Check the full command line for the script name instead.
-        if name in ('bash', 'sh', 'zsh') and 'cursor-agent' in cmd:
+        # cursor-agent runs as a wrapper script (bash/sh) or as the bundled
+        # "agent" binary (~/.local/bin/agent .../cursor-agent/versions/...).
+        # Neither basename matches "cursor-agent" — detect via full cmdline.
+        if name in ('bash', 'sh', 'zsh', 'agent') and 'cursor-agent' in cmd:
             name = 'cursor-agent'
         comm_of[pid] = name
         children.setdefault(ppid, []).append(pid)
