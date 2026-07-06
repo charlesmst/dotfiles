@@ -4,10 +4,23 @@
 # Ctrl-D kills the tmux session for the highlighted row and refreshes the list.
 # Ctrl-A prompts for a session name and creates/attaches (no project folder).
 # Sessions not under ~/projects|~/personal (ad-hoc names) are listed as ● ◇ NAME.
+#
+# One-shot: a single argument that is not an existing path is treated as a project folder name
+# under ~/projects (override with SESSIONIZER_PROJECTS), e.g. tmux-sessionizer.sh stocks →
+# same as passing ~/projects/stocks. No clone or git — the directory must already exist.
 set -u
 _SESSIONIZER_SH="${BASH_SOURCE[0]:-$0}"
 
 SEARCH_ROOTS=(~/projects ~/personal)
+
+sessionizer_projects_root() {
+    printf '%s' "${TMUX_DECOMPOSER_PROJECTS:-${SESSIONIZER_PROJECTS:-$HOME/projects}}"
+}
+
+# Single segment, safe basename (e.g. stocks, stocks-search, ai-skills).
+sessionizer_is_project_nick() {
+    [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]
+}
 
 # List display only: drop $HOME/ so you see projects/... or personal/... (col2 stays absolute).
 path_display() {
@@ -149,9 +162,17 @@ if [ "${1:-}" = "--new-named-session" ]; then
     exit 0
 fi
 
-# Explicit path argument: legacy one-shot mode.
+# Explicit directory: legacy one-shot mode.
 if [ $# -eq 1 ] && [ -d "$1" ]; then
     selected_dir="$1"
+    selected_name=$(basename "$selected_dir" | tr . _)
+# Project nickname → SESSIONIZER_PROJECTS/<name> (directory must exist).
+elif [ $# -eq 1 ] && [ ! -d "$1" ] && sessionizer_is_project_nick "$1"; then
+    selected_dir="$(sessionizer_projects_root)/$1"
+    if [ ! -d "$selected_dir" ]; then
+        echo "sessionizer: no project directory: $selected_dir" >&2
+        exit 1
+    fi
     selected_name=$(basename "$selected_dir" | tr . _)
 else
     SELF="${BASH_SOURCE[0]:-$0}"
@@ -184,6 +205,7 @@ else
     selected_name=$(printf '%s' "$selection" | awk -F'\t' '{print $3}')
 fi
 
+tmux start-server
 tmux_running=$(pgrep tmux)
 
 if [ -z "${TMUX:-}" ] && [ -z "$tmux_running" ]; then

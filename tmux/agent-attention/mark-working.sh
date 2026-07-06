@@ -1,20 +1,13 @@
 #!/bin/bash
-# Mark a tmux pane as currently working (an agent is processing a prompt).
+# Clear the pending (attention) marker when the user submits a new prompt.
 # Called from Claude Code's UserPromptSubmit hook and Cursor CLI's
-# beforeSubmitPrompt hook. Inherits TMUX_PANE from the pane the agent runs in.
+# beforeSubmitPrompt hook.
 set -u
 
 PANE="${TMUX_PANE:-}"
 [ -z "$PANE" ] && exit 0
 
 BASE="${AGENT_ATTENTION_DIR:-$HOME/.local/state/agent-attention}"
-mkdir -p "$BASE/working" "$BASE/pending"
-
 SAFE="${PANE//\//_}"
-touch "$BASE/working/$SAFE"
-
 rm -f "$BASE/pending/$SAFE"
-
-bash "$HOME/personal/dotfiles/tmux/agent-attention/refresh-caches.sh" --force >/dev/null 2>&1 &
-disown 2>/dev/null || true
 exit 0
