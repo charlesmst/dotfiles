@@ -390,11 +390,11 @@ tmux_conf_uninstall_plugins_on_reload=true
 # visit https://github.com/tmux-plugins for available plugins
 set -g @plugin 'tmux-plugins/tmux-copycat'
 set -g @plugin 'tmux-plugins/tmux-cpu'
-set -g @plugin 'tmux-plugins/tmux-resurrect'
-set -g @plugin 'tmux-plugins/tmux-continuum'
+# set -g @plugin 'tmux-plugins/tmux-resurrect'
+# set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @plugin 'sainnhe/tmux-fzf'
 
-set -g @continuum-restore 'on'
+# set -g @continuum-restore 'on'
 
 # bind-key -n "C-p" run-shell -b "~/.tmux/plugins/tmux-fzf/scripts/session.sh switch"
 unbind -n C-p
@@ -406,8 +406,8 @@ bind-key t switch-client -l
 # warms the picker + sessionizer caches (no-op if cache is < 5s old).
 set -g focus-events on
 set-hook -g pane-focus-in 'run-shell "~/personal/dotfiles/tmux/agent-attention/clear.sh #{pane_id}"'
-set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
-set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
+# set-hook -ga pane-focus-in 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
+# set-hook -g client-attached 'run-shell -b "~/personal/dotfiles/tmux/agent-attention/refresh-caches.sh"'
 bind-key a display-popup -E -w 80% -h 70% "~/personal/dotfiles/tmux/agent-attention/picker.sh"
 # -- custom variables ----------------------------------------------------------
 # -- custom variables ----------------------------------------------------------
