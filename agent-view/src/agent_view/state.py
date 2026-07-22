@@ -31,6 +31,18 @@ def pr_dir() -> str:
     return os.path.join(base_dir(), "prs")
 
 
+def notify_sock() -> str:
+    """Well-known push-notify socket path.
+
+    ``event`` always fires a best-effort datagram here (silent no-op if nothing
+    is bound), so a listener just binds this path — no caller opt-in. Override
+    with ``AGENT_VIEW_NOTIFY_SOCK`` or the ``--notify`` flag.
+    """
+    return os.environ.get("AGENT_VIEW_NOTIFY_SOCK") or os.path.join(
+        base_dir(), "events.sock"
+    )
+
+
 def _safe(pane_id: str) -> str:
     return pane_id.replace("/", "_")
 

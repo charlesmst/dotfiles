@@ -189,3 +189,24 @@ def last_message(pane: AgentPane, children: dict[int, list[int]] | None = None) 
     t = transcript_for(pane, children)
     turn = t.last_assistant() or t.last()
     return (turn.text if turn else ""), t.source
+
+
+def transcript_finished(
+    pane: AgentPane, children: dict[int, list[int]] | None = None
+) -> bool | None:
+    """Whether the agent has yielded its turn per its transcript files.
+
+    A file-based completion signal that doesn't depend on a hook marker or on
+    the pane going visually quiet — the animated TUI (per-second spinner,
+    backgrounded-agent indicator) keeps a pane "active" long after the turn is
+    logically done. Only implemented for Claude today; None = unknown.
+    """
+    from . import discovery, proc
+    from .model import AgentKind
+
+    if pane.kind is not AgentKind.CLAUDE:
+        return None
+    if children is None:
+        children, _ = discovery.process_snapshot()
+    pids = proc.subtree_pids(pane.pane_pid, children)
+    return transcript_mod.claude_turn_finished(pids)

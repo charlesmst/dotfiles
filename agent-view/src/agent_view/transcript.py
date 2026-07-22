@@ -204,6 +204,52 @@ def _claude(pids: list[int]) -> Transcript:
     return read_claude(path)
 
 
+def _claude_newest_path(pids: list[int]) -> str | None:
+    cwd = proc.first_cwd(pids)
+    if not cwd:
+        return None
+    project_dir = _claude_project_dir(cwd)
+    return _newest_jsonl(project_dir) if project_dir else None
+
+
+def claude_turn_finished(pids: list[int]) -> bool | None:
+    """Has the Claude agent finished its turn, per its transcript?
+
+    Reads the newest transcript's last real (user/assistant, non-sidechain)
+    record: an assistant message with ``stop_reason == "end_turn"`` means the
+    agent has yielded and is awaiting input. Anything else — a ``tool_use``
+    stop, or a trailing user/tool record — means it's still mid-turn.
+
+    This is robust to the animated TUI (the per-second spinner keeps the pane
+    "active" long after the turn is logically done) and needs no hook marker.
+    Returns None when the state can't be determined (no transcript, etc.).
+    """
+    path = _claude_newest_path(pids)
+    if not path:
+        return None
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("isSidechain") or rec.get("type") not in ("user", "assistant"):
+            continue
+        if rec.get("type") == "user":
+            return False  # a user/tool_result turn is newest → agent will respond
+        msg = rec.get("message")
+        stop = msg.get("stop_reason") if isinstance(msg, dict) else None
+        return stop == "end_turn"
+    return None
+
+
 # --- Cursor CLI -------------------------------------------------------------
 
 

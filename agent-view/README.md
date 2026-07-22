@@ -79,8 +79,50 @@ agent-view                  # the TUI (run from a tmux popup)
 agent-view event pending    # hook entrypoint: mark $TMUX_PANE pending
 agent-view event clear      # hook entrypoint: clear the marker
 agent-view status           # status-line fragment: "● N" pending count
+agent-view listen [PATH]     # bind the notify socket, print datagrams (one JSON/line)
 agent-view doctor           # print the discovery snapshot (debugging)
 agent-view install [--dry-run]
+```
+
+### Push notifications (`event` always pushes)
+
+After its marker logic, `event {pending,clear,pr}` **always** does a best-effort,
+fire-and-forget send of **one JSON datagram** (`AF_UNIX` / `SOCK_DGRAM` /
+`sendto` — no connect/accept) to a well-known socket, so a listener is pushed
+the instant an agent finishes, blocks, or opens a PR — no polling, no caller
+opt-in. The datagram carries `pane_id`, `location` (resolved tmux
+`session:window.pane`, or null), `agent`, `event` (`pending`/`clear`/`pr`),
+`message` (the reason, or PR url for `pr`), and `ts` (unix time).
+
+It never raises, never blocks the hook, and silently no-ops when nothing is
+bound (short internal send timeout) — so it costs nothing when no one listens.
+The destination is `$AGENT_VIEW_NOTIFY_SOCK`, else `<state>/events.sock`
+(`~/.local/state/agent-attention/events.sock`); `--notify PATH` overrides it per
+invocation. Nothing to enable — the installed hooks already emit these.
+
+An orchestrator just binds that path and reads (`recvfrom`):
+
+```python
+import socket, json
+s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+s.bind("/Users/you/.local/state/agent-attention/events.sock")  # the default path
+while True:
+    event = json.loads(s.recvfrom(65536)[0])    # {"pane_id":..., "event":"pending", ...}
+    print(event["location"], event["event"], event["message"])
+```
+
+Or use the built-in reader (generic bind + print, no filtering — pipe it into
+your own consumer):
+
+```bash
+agent-view listen                 # binds the default socket, prints one JSON/line
+agent-view listen /tmp/fleet.sock # bind a specific path
+```
+
+```bash
+# override the destination for a one-off invocation:
+agent-view event pending --agent claude --event stop \
+  --message "Turn finished" --notify /tmp/fleet.sock
 ```
 
 ### AI-friendly layer (`ls` / `show` / `transcript` / `wait`)
@@ -122,6 +164,13 @@ Status vocabulary (small on purpose, so you can branch on it):
 the precise signal the instant it fires. Where a completion hook can't fire
 (e.g. the pane is focused, as with `--unless-focused`), `wait` still returns
 as soon as output stops — it reports `idle` rather than inventing a `done`.
+
+One trap this avoids: an agent's TUI can keep the pane "active" long after the
+turn is logically finished — Claude's per-second `✻ …` spinner and the
+backgrounded-agent indicator repaint every second, so a marker-less focused
+pane would look `working` forever. So when a Claude pane looks `working` but
+has no marker, `wait` reads the transcript's end-of-turn state
+(`stop_reason == "end_turn"`) and returns `done` regardless of the repaints.
 
 Transcript sources per agent: Claude → `~/.claude/projects/.../*.jsonl`;
 Cursor → `~/.cursor/chats/*/<sessionId>/store.db` (via the pid→session map in

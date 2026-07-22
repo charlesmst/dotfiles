@@ -47,6 +47,33 @@ def _resolve_pane(args: argparse.Namespace) -> str | None:
     return getattr(args, "pane", None) or os.environ.get("TMUX_PANE") or None
 
 
+def _maybe_push(args: argparse.Namespace, pane: str, action: str, message: str | None) -> None:
+    """Always fire a best-effort push after the marker logic. Never raises/blocks.
+
+    Sends one JSON datagram describing what just happened so a listener (e.g. an
+    orchestrator) is pushed the instant an agent finishes, blocks, or opens a
+    PR — no polling, no caller opt-in. Destination is ``--notify PATH`` if
+    given, else the well-known default (``state.notify_sock``). Silent no-op
+    when nothing is bound there.
+    """
+    try:
+        import time
+
+        from . import notify as notify_mod, state, tmux
+
+        path = getattr(args, "notify", None) or state.notify_sock()
+        notify_mod.send(path, {
+            "pane_id": pane,
+            "location": tmux.pane_location(pane),
+            "agent": getattr(args, "agent", None),
+            "event": action,  # pending | clear | pr
+            "message": message,  # reason for pending; PR url for pr; None for clear
+            "ts": time.time(),
+        })
+    except Exception:
+        pass  # push is best-effort; must never affect the hook
+
+
 def cmd_event(args: argparse.Namespace) -> int:
     from . import state, tmux
 
@@ -56,6 +83,7 @@ def cmd_event(args: argparse.Namespace) -> int:
             return 0
         if args.action == "clear":
             state.clear_pending(pane)
+            _maybe_push(args, pane, "clear", None)
             return 0
         if args.action == "pr":
             # Record a PR the agent just created. Fast + silent: only touches
@@ -68,6 +96,7 @@ def cmd_event(args: argparse.Namespace) -> int:
                 url = pr_mod.extract_pr_url(raw or "")
             if url:
                 pr_mod.record(pane, url)
+                _maybe_push(args, pane, "pr", url)
             return 0
         # action == "pending". Only consult the payload when no explicit
         # message was given (avoids blocking on stdin unnecessarily).
@@ -86,6 +115,7 @@ def cmd_event(args: argparse.Namespace) -> int:
         if not event and isinstance(ptype, str):
             event = ptype
         state.mark_pending(pane, message=message, agent=args.agent, event=event)
+        _maybe_push(args, pane, "pending", message)
     except Exception:
         pass  # hooks must never break the agent
     return 0
@@ -356,6 +386,16 @@ def cmd_wait(args: argparse.Namespace) -> int:
             break
         rep = report.report_for(res.pane)
         working = rep.status.value == "working"
+        # A "working" pane can just be the animated TUI (per-second spinner,
+        # backgrounded-agent indicator) repainting after the turn is logically
+        # done — especially when there's no hook marker (focused pane). Trust
+        # the transcript's end-of-turn signal over pane pixels.
+        if working and rep.reason is None:
+            if report.transcript_finished(res.pane) is True:
+                outcome = rep.to_dict()
+                outcome["status"] = "done"
+                outcome["reason"] = "turn ended (transcript); pane still repainting"
+                break
         if working:
             seen_working = True
         # Done the moment it isn't working. The only reason to keep waiting on a
@@ -396,6 +436,59 @@ def cmd_wait(args: argparse.Namespace) -> int:
     return 0
 
 
+def _bind_listen_socket(path: str):
+    """Bind an AF_UNIX datagram socket at ``path``, clearing a stale socket.
+
+    Returns the bound socket. Raises ValueError if ``path`` exists as a
+    non-socket (we won't delete arbitrary files) or OSError if bind fails.
+    """
+    import os
+    import socket
+    import stat as stat_mod
+
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    if os.path.exists(path):
+        if not stat_mod.S_ISSOCK(os.stat(path).st_mode):
+            raise ValueError(f"{path} exists and is not a socket")
+        os.unlink(path)  # stale socket from a previous listener
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.bind(path)
+    return sock
+
+
+def cmd_listen(args: argparse.Namespace) -> int:
+    """Bind the push-notify socket and print each datagram (one JSON per line).
+
+    Generic reader: no filtering — a consumer parses/routes the lines itself.
+    """
+    import os
+
+    from . import state
+
+    path = args.path or (getattr(args, "notify", None) or state.notify_sock())
+    try:
+        sock = _bind_listen_socket(path)
+    except (ValueError, OSError) as exc:
+        print(f"error: cannot listen on {path}: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"listening on {path}  (ctrl-c to stop)", file=sys.stderr, flush=True)
+    try:
+        while True:
+            data, _ = sock.recvfrom(65536)
+            print(data.decode("utf-8", "replace"), flush=True)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        sock.close()
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     from .installer import run_install
 
@@ -431,6 +524,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event.add_argument(
         "--payload", help="hook payload as a JSON argument (Codex notify style)"
+    )
+    event.add_argument(
+        "--notify", metavar="PATH",
+        help="override the push-notify socket path (default: $AGENT_VIEW_NOTIFY_SOCK "
+             "or <state>/events.sock). event always fires a best-effort JSON "
+             "datagram (AF_UNIX/SOCK_DGRAM) here; never blocks.",
     )
     event.add_argument(
         "--unless-focused",
@@ -483,6 +582,15 @@ def build_parser() -> argparse.ArgumentParser:
                       help="for the first N seconds, don't treat a not-yet-started "
                            "agent as finished — guards trigger-then-wait (default: 0)")
     wait.set_defaults(func=cmd_wait)
+
+    listen = sub.add_parser(
+        "listen", help="bind the push-notify socket and print datagrams (one JSON/line)"
+    )
+    listen.add_argument(
+        "path", nargs="?",
+        help="socket path to bind (default: $AGENT_VIEW_NOTIFY_SOCK or <state>/events.sock)",
+    )
+    listen.set_defaults(func=cmd_listen)
 
     install = sub.add_parser("install", help="wire agent hook configs")
     install.add_argument("--dry-run", action="store_true")

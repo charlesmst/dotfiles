@@ -60,6 +60,16 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   agent is `working` (recent pane output) and returns the instant it isn't —
   `done`/`blocked` if a marker fired, else `idle`. It never fabricates `done`
   from silence; `--startup` only guards the trigger-then-wait launch race.
+- **Animated-TUI trap.** `working` is derived from tmux `window_activity`, but
+  Claude's per-second `✻ …` spinner and the backgrounded-agent indicator
+  repaint every second — so a *marker-less focused pane* whose turn is already
+  done stays `working` indefinitely (this was the "`wait` never stops" bug).
+  Guard: when a Claude pane looks `working` with no marker, `wait` calls
+  `report.transcript_finished` → `transcript.claude_turn_finished`, which reads
+  the newest transcript's last real record and returns `done` on
+  `stop_reason == "end_turn"`. This is intentionally kept out of `status_of`
+  (and thus the 1s TUI refresh) — it's a per-call transcript read, only in the
+  CLI `wait` path.
 - **Identity = tmux location** (`session:window.pane`), which equals the
   delegator's `tmux_target`. `report.resolve()` also accepts a raw pane id,
   a `session:window` prefix, or a unique substring; ambiguity returns

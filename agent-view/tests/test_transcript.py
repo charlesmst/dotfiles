@@ -61,6 +61,52 @@ def test_read_claude(tmp_path):
     assert t.turns[0].ts is not None
 
 
+def _finished_for(tmp_path, monkeypatch, last_records):
+    """Point the claude project dir at a fixture and check turn-finished state."""
+    proj = tmp_path / "-proj"
+    proj.mkdir()
+    (proj / "s.jsonl").write_text("\n".join(json.dumps(r) for r in last_records) + "\n")
+    monkeypatch.setattr(T, "_claude_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(T, "_claude_project_dir", lambda cwd: str(proj))
+    monkeypatch.setattr(T.proc, "first_cwd", lambda pids: "/proj")
+    return T.claude_turn_finished([123])
+
+
+def test_turn_finished_end_turn(tmp_path, monkeypatch):
+    # Trailing system records (like real transcripts) must be skipped back to
+    # the last real assistant turn.
+    assert _finished_for(tmp_path, monkeypatch, [
+        {"type": "assistant", "message": {"role": "assistant", "stop_reason": "end_turn",
+                                          "content": [{"type": "text", "text": "done"}]}},
+        {"type": "system"}, {"type": "system"},
+    ]) is True
+
+
+def test_turn_not_finished_on_tool_use(tmp_path, monkeypatch):
+    assert _finished_for(tmp_path, monkeypatch, [
+        {"type": "assistant", "message": {"role": "assistant", "stop_reason": "tool_use",
+                                          "content": [{"type": "tool_use", "name": "Bash"}]}},
+    ]) is False
+
+
+def test_turn_not_finished_when_user_is_last(tmp_path, monkeypatch):
+    assert _finished_for(tmp_path, monkeypatch, [
+        {"type": "assistant", "message": {"role": "assistant", "stop_reason": "end_turn",
+                                          "content": [{"type": "text", "text": "hi"}]}},
+        {"type": "user", "message": {"role": "user", "content": "and now this"}},
+    ]) is False
+
+
+def test_turn_finished_ignores_sidechain(tmp_path, monkeypatch):
+    # A running subagent's sidechain records must not mask the main turn state.
+    assert _finished_for(tmp_path, monkeypatch, [
+        {"type": "assistant", "message": {"role": "assistant", "stop_reason": "end_turn",
+                                          "content": [{"type": "text", "text": "delegated"}]}},
+        {"type": "assistant", "isSidechain": True,
+         "message": {"role": "assistant", "stop_reason": "tool_use", "content": []}},
+    ]) is True
+
+
 def test_encode_cwd():
     assert T._encode_cwd("/Users/x/personal/dotfiles") == "-Users-x-personal-dotfiles"
     assert "." not in T._encode_cwd("/tmp/a.b/c")
