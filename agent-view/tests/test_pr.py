@@ -61,7 +61,33 @@ def test_record_and_load_pr(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
     pr.record("%3", "https://github.com/o/n/pull/9")
     m = state.load_prs()["%3"]
-    assert m.url.endswith("/pull/9") and m.repo == "o/n" and m.number == 9
+    assert m.urls == ["https://github.com/o/n/pull/9"]
+    assert m.prs[0].repo == "o/n" and m.prs[0].number == 9
+
+
+def test_record_multiple_prs_per_pane(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
+    pr.record("%3", "https://github.com/o/n/pull/1")
+    pr.record("%3", "https://github.com/o/other/pull/2")
+    pr.record("%3", "https://github.com/o/n/pull/1")  # dup → ignored
+    m = state.load_prs()["%3"]
+    assert m.urls == [
+        "https://github.com/o/n/pull/1",
+        "https://github.com/o/other/pull/2",
+    ]
+
+
+def test_load_legacy_single_pr_shape(tmp_path, monkeypatch):
+    """Files written by the old single-PR recorder still load."""
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
+    import json
+    import os
+    os.makedirs(tmp_path / "prs")
+    (tmp_path / "prs" / "%9").write_text(
+        json.dumps({"url": "https://github.com/o/n/pull/5", "repo": "o/n", "number": 5})
+    )
+    m = state.load_prs()["%9"]
+    assert m.urls == ["https://github.com/o/n/pull/5"]
 
 
 def test_clear_and_prune_pr(tmp_path, monkeypatch):
@@ -77,15 +103,18 @@ def test_clear_and_prune_pr(tmp_path, monkeypatch):
 # --- association precedence -------------------------------------------------
 
 
-def test_recorded_url_wins_over_derive(monkeypatch):
+def test_recorded_urls_win_over_derive(monkeypatch):
     from agent_view.model import AgentKind, AgentPane
 
     pane = AgentPane(pane_id="%1", pane_pid=1, agent_pid=2, kind=AgentKind.CLAUDE,
                      session="s", window_index="1", pane_index="1", window_name="w",
-                     last_activity=0.0, pr_url="https://github.com/o/n/pull/5")
-    # derive_url must never be consulted when a recorded url exists.
+                     last_activity=0.0,
+                     pr_urls=["https://github.com/o/n/pull/5",
+                              "https://github.com/o/n/pull/6"])
+    # derive_url must never be consulted when recorded urls exist.
     monkeypatch.setattr(pr, "derive_url", lambda cwd: (_ for _ in ()).throw(AssertionError("derived")))
-    assert pr.pane_pr_url(pane, children={}) == "https://github.com/o/n/pull/5"
+    assert pr.pane_pr_urls(pane, children={}) == [
+        "https://github.com/o/n/pull/5", "https://github.com/o/n/pull/6"]
 
 
 def test_fetch_status_is_cached(monkeypatch):

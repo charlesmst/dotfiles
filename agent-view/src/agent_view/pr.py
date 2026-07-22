@@ -12,7 +12,7 @@ Two halves, kept apart on purpose:
   refresh never hammers the network. Status is never persisted — it's live.
 
 Codex has no per-tool hook, and PRs opened in the browser are never recorded,
-so ``pane_pr_url`` also falls back to deriving the PR from the pane's current
+so ``pane_pr_urls`` also falls back to deriving the PR from the pane's current
 git branch. Recorded identity always wins over a derived guess.
 """
 from __future__ import annotations

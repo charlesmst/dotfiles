@@ -138,24 +138,29 @@ agent-view wait stocks:4.1 --json -m     # → {"status":"blocked","reason":"...
 ### Pull requests
 
 When an agent creates a PR, agent-view **records** it against that session and
-shows it with **live status** from `gh`:
+shows it with **live status** from `gh`. A session can open **several** PRs
+(multiple repos/worktrees, stacked branches) — all of them are tracked, deduped
+in creation order.
 
 - **Recording** is hook-driven: Claude's `PostToolUse` (Bash) and Cursor's
-  `afterShellExecution` see the `gh pr create` command + its output and store
-  the PR URL for the pane (`agent-view event pr`). Only the URL is stored, never
-  the mutable PR state. Codex has no per-tool hook, so its PRs (and any opened
-  in the browser) are picked up by the branch-derive fallback instead.
+  `afterShellExecution` see the `gh pr create` command + its output and append
+  the PR URL to the pane's list (`agent-view event pr`). Only URLs are stored,
+  never the mutable PR state. Codex has no per-tool hook, so its PRs (and any
+  opened in the browser) are picked up by the branch-derive fallback instead.
 - **Status** is fetched on demand via `gh pr view <url>` (open/merged/closed +
   CI check counts), cached 60s in-process so the 1s TUI refresh never hammers
   the network.
 
 ```bash
-agent-view ls --pr            # each agent + "PR #482 OPEN · ✓5/6 checks"
-agent-view show stocks:4.1    # includes the PR line + url
+agent-view ls --pr            # each agent + one "PR #482 OPEN · ✓5/6 checks" line per PR
+agent-view show stocks:4.1    # lists every PR (pr[1], pr[2], …) + urls
 ```
 
-In the **TUI**, agents with a PR show its status on the tile / list row, and
-**`ctrl-o`** opens the selected agent's PR in the browser (`gh pr view --web`).
+Under `--json`, each agent carries a `prs` array (one object per PR).
+
+In the **TUI**, agents with PRs show status on the tile / list row (a `⇥×N`
+marker when there's more than one), and **`ctrl-o`** opens the selected agent's
+PR(s) in the browser (`gh pr view --web`).
 
 ## Tests
 

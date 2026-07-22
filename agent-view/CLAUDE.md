@@ -81,17 +81,19 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   shell-tool hook (Claude `PostToolUse`+`Bash`, Cursor `afterShellExecution`),
   which pipes the payload to `agent-view event pr`. We gate on the command
   literally being `gh pr create` (so `gh pr view` isn't misrecorded), pull the
-  PR URL from the output, and persist just the URL in `state` (`prs/` dir,
-  mirrors pending markers incl. prune-on-dead-pane). Recording is fast and
+  PR URL from the output, and **append** it to the pane's marker in `state`
+  (`prs/` dir, mirrors pending markers incl. prune-on-dead-pane). A pane holds
+  a *list* — a session can open several PRs — deduped by URL in creation order;
+  the marker file tolerates the legacy single-PR shape. Recording is fast and
   never networks — the hook runs on *every* Bash call.
 - **Status** comes from `gh pr view <url> --json` on demand, cached in-process
   for 60s (`pr._cache`). This keeps the 1s TUI refresh cheap: the refresh
   worker only fetches for *recorded* PRs (never per-pane branch derivation),
   off the UI thread, and PR failure never breaks a refresh.
-- **Fallback:** `pane_pr_url` returns the recorded URL if present, else derives
-  from the pane's git branch (`gh pr view` in cwd). Recorded always wins.
-  `ctrl-o` in the TUI opens the selected agent's PR (`gh pr view --web`),
-  deriving on demand if nothing was recorded.
+- **Fallback:** `pane_pr_urls` returns the recorded URLs if any, else derives
+  the single PR of the pane's git branch (`gh pr view` in cwd). Recorded always
+  wins. `ctrl-o` in the TUI opens *all* the selected agent's PRs
+  (`gh pr view --web`), deriving on demand if nothing was recorded.
 - **Codex** can't record (notify-only), so its PRs rely on the derive fallback.
 
 Design invariants — do not break these:

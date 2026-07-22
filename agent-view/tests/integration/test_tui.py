@@ -79,7 +79,7 @@ async def test_recorded_pr_renders_in_tile(tmux_server, monkeypatch):
     app = AgentViewApp()
     async with app.run_test(size=(140, 40)) as pilot:
         await _settle(pilot, app, min_tiles=1)
-        assert app._pr_statuses.get(pane) is fake
+        assert app._pr_statuses.get(pane) == [fake]
         tile = next(t for t in app.query(AgentTile) if t.agent.pane_id == pane)
         assert "PR" in tile.border_subtitle and "42" in tile.border_subtitle
 

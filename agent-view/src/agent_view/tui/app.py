@@ -452,9 +452,9 @@ class AgentViewApp(App[None]):
             row.append(fit(agent.title or "-", 10), style="dim")
             age_style = "red" if agent.state == AgentState.STALE else "dim"
             row.append(format_age(agent.idle_seconds).rjust(4), style=age_style)
-            pr_status = self._pr_statuses.get(agent.pane_id)
-            if pr_status is not None:
-                row.append_text(pr_row_marker(pr_status))
+            pr_statuses = self._pr_statuses.get(agent.pane_id)
+            if pr_statuses:
+                row.append_text(pr_row_marker(pr_statuses))
             if selected:
                 row.stylize("reverse")
             rows.append_text(row)
@@ -465,9 +465,9 @@ class AgentViewApp(App[None]):
         agent = self.filtered_agents[self.selected]
         preview.border_title = title_markup(agent)
         subtitle = subtitle_markup(agent)
-        pr_status = self._pr_statuses.get(agent.pane_id)
-        if pr_status is not None:
-            subtitle += f"[dim]·[/] {pr_summary_markup(pr_status)} [dim]^o open[/] "
+        pr_statuses = self._pr_statuses.get(agent.pane_id)
+        if pr_statuses:
+            subtitle += f"[dim]·[/] {pr_subtitle_markup(pr_statuses)} [dim]^o open[/] "
         preview.border_subtitle = subtitle
         for st in AgentState:
             preview.set_class(agent.state == st, f"-{st.value}")
@@ -549,28 +549,28 @@ class AgentViewApp(App[None]):
         self.exit()
 
     def open_pr(self) -> None:
-        """Open the selected agent's PR in the browser (recorded, else derived)."""
+        """Open the selected agent's PR(s) in the browser (recorded, else derived)."""
         agent = self.current
         if agent is None:
             return
-        status = self._pr_statuses.get(agent.pane_id)
-        # Prefer the URL we already have status for; else resolve (may derive).
-        url = getattr(status, "url", None) or agent.pr_url
+        # URLs we already have status for; else resolve (may derive) in-worker.
+        known = [s.url for s in self._pr_statuses.get(agent.pane_id, []) if s.url]
 
         def _worker() -> None:
             from .. import pr as pr_mod
 
-            resolved = url or pr_mod.pane_pr_url(agent)
-            if not resolved:
+            urls = known or pr_mod.pane_pr_urls(agent)
+            if not urls:
                 self.call_from_thread(
                     self.notify, f"no PR for {agent.location}", severity="warning"
                 )
                 return
-            ok = pr_mod.open_in_browser(resolved)
+            opened = sum(1 for u in urls if pr_mod.open_in_browser(u))
             self.call_from_thread(
                 self.notify,
-                f"opening {resolved}" if ok else f"failed to open {resolved}",
-                severity="information" if ok else "error",
+                f"opening {opened} PR(s) for {agent.location}" if opened
+                else "failed to open PR",
+                severity="information" if opened else "error",
             )
 
         self.run_worker(_worker, thread=True, group="open-pr")
