@@ -101,6 +101,7 @@ def discover() -> list[AgentPane]:
     panes = tmux.list_panes()
     children, agents = process_snapshot()
     markers = state.load_pending()
+    prs = state.load_prs()
 
     found: list[AgentPane] = []
     live_pane_ids: set[str] = set()
@@ -111,6 +112,7 @@ def discover() -> list[AgentPane]:
         agent_pid, kind = hit
         live_pane_ids.add(pane["pane_id"])
         marker = markers.get(pane["pane_id"])
+        pr = prs.get(pane["pane_id"])
         found.append(
             AgentPane(
                 pane_id=pane["pane_id"],
@@ -124,9 +126,12 @@ def discover() -> list[AgentPane]:
                 last_activity=pane["last_activity"],
                 pending_message=marker.message if marker else None,
                 pending_since=marker.since if marker else None,
+                pending_event=marker.event if marker else None,
+                pr_urls=pr.urls if pr else [],
             )
         )
 
     state.prune_pending(live_pane_ids)
+    state.prune_prs(live_pane_ids)
     found.sort(key=AgentPane.sort_key)
     return found

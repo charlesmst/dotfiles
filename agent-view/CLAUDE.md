@@ -24,10 +24,19 @@ server or state dir (`AGENT_ATTENTION_DIR` is redirected per-test).
 
 ```
 cli.py        argparse entrypoint; hook subcommands lazy-import and NEVER
-              raise (a failing hook must not break the calling agent)
+              raise (a failing hook must not break the calling agent).
+              Also hosts the AI-friendly layer: ls/show/transcript/wait.
 model.py      AgentPane dataclass + state machine (pending/working/idle/stale)
 discovery.py  tmux list-panes + ONE ps snapshot → BFS pane pid → agent pid
-state.py      pending markers: the only persistent state
+state.py      persistent markers: pending (carries `event`:
+              stop|turn-complete|notification) AND pr (recorded PR url per pane)
+pr.py         PR association: record url on `gh pr create` (hook), fetch live
+              status via `gh pr view` (TTL-cached), branch-derive fallback
+proc.py       process subtree pids + cwd via lsof (links a pane to its files)
+transcript.py read agent transcripts from THEIR files (claude jsonl / cursor
+              sqlite blob-DAG / codex rollout jsonl); pane capture fallback
+report.py     AgentReport: status (working/idle/done/blocked/stale) from
+              markers+activity, last message, and `resolve()` (id → pane)
 tmux.py       all tmux subprocess calls; honors AGENT_VIEW_TMUX_ARGS
 fuzzy.py      dependency-free fzf-ish subsequence scorer
 installer.py  wires hook configs into claude/cursor/codex (idempotent)
@@ -35,6 +44,55 @@ tui/app.py    Textual app: grid of AgentTile / list+preview + filter +
               confirm modal; ctrl-l toggles views (persisted via
               state.save_view_mode in the state dir)
 ```
+
+## AI-friendly layer (ls / show / transcript / wait)
+
+Purpose: let an assistant navigate the fleet from the CLI. Design rules:
+
+- **Read-only over the agents' own files — no new state.** `transcript.py`
+  parses Claude JSONL, Cursor's SQLite blob store, and Codex rollout JSONL.
+  It never writes anything and falls back to `tmux capture-pane` (source
+  `pane`) only when no file source resolves.
+- **Status/blocked ride the hook markers, not pane scraping.** `done` vs
+  `blocked` is decided by the marker's `event` field: `stop`/`turn-complete`
+  → done, `notification` → blocked (Claude permission/question). Legacy
+  markers (no event) fall back to a text regex. `wait` blocks only while the
+  agent is `working` (recent pane output) and returns the instant it isn't —
+  `done`/`blocked` if a marker fired, else `idle`. It never fabricates `done`
+  from silence; `--startup` only guards the trigger-then-wait launch race.
+- **Identity = tmux location** (`session:window.pane`), which equals the
+  delegator's `tmux_target`. `report.resolve()` also accepts a raw pane id,
+  a `session:window` prefix, or a unique substring; ambiguity returns
+  candidates rather than guessing.
+- **Cursor transcript linkage:** pane subtree pid → `~/.cursor/sessions/<pid>.json`
+  (written by the repo's own sessionStart hook, `config/cursor/hooks.json`)
+  → `sessionId` → `~/.cursor/chats/*/<sessionId>/store.db`. Message blobs are
+  plain JSON `{"role","content"}`; binary index blobs are protobuf-ish
+  (`0x0a 0x20` + 32-byte id refs) forming a DAG headed by
+  `meta.latestRootBlobId` (stored hex-encoded). We DFS from the head; if that
+  yields nothing we salvage every JSON blob (order-agnostic).
+- **Codex is best-effort** — no rollout files existed on the dev machine, so
+  the reader is tolerant (accepts role+content directly or wrapped in
+  payload/message) but untested against real data.
+
+## PR association (pr.py)
+
+- **Identity is recorded; status is live.** A `gh pr create` fires the agent's
+  shell-tool hook (Claude `PostToolUse`+`Bash`, Cursor `afterShellExecution`),
+  which pipes the payload to `agent-view event pr`. We gate on the command
+  literally being `gh pr create` (so `gh pr view` isn't misrecorded), pull the
+  PR URL from the output, and persist just the URL in `state` (`prs/` dir,
+  mirrors pending markers incl. prune-on-dead-pane). Recording is fast and
+  never networks — the hook runs on *every* Bash call.
+- **Status** comes from `gh pr view <url> --json` on demand, cached in-process
+  for 60s (`pr._cache`). This keeps the 1s TUI refresh cheap: the refresh
+  worker only fetches for *recorded* PRs (never per-pane branch derivation),
+  off the UI thread, and PR failure never breaks a refresh.
+- **Fallback:** `pane_pr_url` returns the recorded URL if present, else derives
+  from the pane's git branch (`gh pr view` in cwd). Recorded always wins.
+  `ctrl-o` in the TUI opens the selected agent's PR (`gh pr view --web`),
+  deriving on demand if nothing was recorded.
+- **Codex** can't record (notify-only), so its PRs rely on the derive fallback.
 
 Design invariants — do not break these:
 

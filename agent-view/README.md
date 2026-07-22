@@ -28,9 +28,9 @@ This installs the `agent-view` CLI into `~/.local/bin` (via
 
 | Agent | Mechanism | What gets wired |
 |---|---|---|
-| Claude Code | local plugin (`plugins/claude`) | `Notification`/`Stop` → mark pending, `UserPromptSubmit` → clear |
-| Cursor CLI | merged into `~/.cursor/hooks.json` | `stop` → mark pending, `beforeSubmitPrompt` → clear |
-| Codex CLI | `notify = [...]` in `~/.codex/config.toml` | turn-complete → mark pending |
+| Claude Code | local plugin (`plugins/claude`) | `Notification`/`Stop` → mark pending, `UserPromptSubmit` → clear, `PostToolUse`(Bash) → record PR |
+| Cursor CLI | merged into `~/.cursor/hooks.json` | `stop` → mark pending, `beforeSubmitPrompt` → clear, `afterShellExecution` → record PR |
+| Codex CLI | `notify = [...]` in `~/.codex/config.toml` | turn-complete → mark pending (no per-tool hook → PRs are branch-derived) |
 
 All hook sources live in this repo under `plugins/`; the installer is
 idempotent and re-run by `create_links.sh`.
@@ -42,6 +42,7 @@ idempotent and re-run by `create_links.sh`.
 | type | fuzzy-filter agents (session/window/kind) |
 | arrows / tab | move selection |
 | enter / double-click | jump to the agent's pane |
+| ctrl-o | open the agent's PR in the browser (if any) |
 | ctrl-l | toggle grid ⇄ list view (persists) |
 | pgup / pgdn | scroll the preview (list view; includes scrollback) |
 | ctrl-d | kill the agent process (confirm) |
@@ -81,6 +82,80 @@ agent-view status           # status-line fragment: "● N" pending count
 agent-view doctor           # print the discovery snapshot (debugging)
 agent-view install [--dry-run]
 ```
+
+### AI-friendly layer (`ls` / `show` / `transcript` / `wait`)
+
+A small, render-once, `--json`-capable surface an assistant (or a script)
+can drive to navigate the fleet. Every command takes an **id** — a tmux
+location like `stocks:4.1`, a `session:window` prefix like `stocks:4`, a raw
+pane id like `%42`, or any unique substring of the location / window name.
+Transcripts and last-messages are read straight from each agent's own files
+(**no new state**); status rides the hook markers, not pane scraping.
+
+```
+agent-view ls [--json] [-m] [--pr]   # list agents + status (one shot)
+agent-view show <id> [--json] [--no-pr]   # status + last message + PR + metadata
+agent-view transcript <id> [--json] [--tail N] [--role user|assistant|tool|system] [--no-pane-fallback]
+agent-view wait <id> [--json] [-m] [--timeout S] [--interval S] [--startup S]
+```
+
+`wait` blocks **only while the agent is `working`** (producing output). The
+moment it's doing nothing — `done`/`blocked` (a hook fired), `idle`/`stale`
+(quiet), or the process is gone (`exited`) — it returns immediately with that
+status. So waiting on an already-idle agent returns at once; waiting on a busy
+one returns as soon as it stops. `--startup S` (default 0) guards the
+launch race for "trigger then wait": for the first S seconds an agent not yet
+seen working isn't counted as finished.
+
+Status vocabulary (small on purpose, so you can branch on it):
+
+| status | meaning |
+|---|---|
+| `working` | producing output right now — leave it alone |
+| `idle` | quiet but recent; no completion signal yet |
+| `done` | finished a turn (Stop / turn-complete hook); awaiting input |
+| `blocked` | proactively asked for you — permission or a question (`Notification` hook). This is "needs an answer". |
+| `stale` | no output for hours; probably abandoned |
+| `exited` | (`wait` only) the agent process is gone |
+
+`done` / `blocked` come from the hook-driven pending markers, so `wait` gets
+the precise signal the instant it fires. Where a completion hook can't fire
+(e.g. the pane is focused, as with `--unless-focused`), `wait` still returns
+as soon as output stops — it reports `idle` rather than inventing a `done`.
+
+Transcript sources per agent: Claude → `~/.claude/projects/.../*.jsonl`;
+Cursor → `~/.cursor/chats/*/<sessionId>/store.db` (via the pid→session map in
+`~/.cursor/sessions/<pid>.json`); Codex → `~/.codex/sessions/**/rollout-*.jsonl`
+(best-effort). If none is found, `transcript` falls back to live pane text and
+labels the source `pane`.
+
+Example (an assistant polling a delegated agent):
+
+```bash
+agent-view wait stocks:4.1 --json -m     # → {"status":"blocked","reason":"...","last_message":"..."}
+```
+
+### Pull requests
+
+When an agent creates a PR, agent-view **records** it against that session and
+shows it with **live status** from `gh`:
+
+- **Recording** is hook-driven: Claude's `PostToolUse` (Bash) and Cursor's
+  `afterShellExecution` see the `gh pr create` command + its output and store
+  the PR URL for the pane (`agent-view event pr`). Only the URL is stored, never
+  the mutable PR state. Codex has no per-tool hook, so its PRs (and any opened
+  in the browser) are picked up by the branch-derive fallback instead.
+- **Status** is fetched on demand via `gh pr view <url>` (open/merged/closed +
+  CI check counts), cached 60s in-process so the 1s TUI refresh never hammers
+  the network.
+
+```bash
+agent-view ls --pr            # each agent + "PR #482 OPEN · ✓5/6 checks"
+agent-view show stocks:4.1    # includes the PR line + url
+```
+
+In the **TUI**, agents with a PR show its status on the tile / list row, and
+**`ctrl-o`** opens the selected agent's PR in the browser (`gh pr view --web`).
 
 ## Tests
 
