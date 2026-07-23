@@ -193,18 +193,35 @@ class AgentListPanel(Static):
 
 
 class SnapshotReady(Message):
-    """Posted (thread-safely) by the refresh worker with fresh data."""
+    """Posted (thread-safely) by the refresh worker with fresh data.
+
+    Carries only the locally-derived data (panes + captured previews) so it
+    can be posted the instant those are ready. PR status is fetched
+    separately (network) and arrives later via ``PRStatusReady`` — it must
+    never delay the first frame.
+    """
 
     def __init__(
         self,
         agents: list[AgentPane],
         previews: dict[str, str],
-        pr_statuses: dict[str, object] | None = None,
     ) -> None:
         super().__init__()
         self.agents = agents
         self.previews = previews
-        self.pr_statuses = pr_statuses or {}
+
+
+class PrStatusReady(Message):
+    """Posted by the PR worker once ``gh`` returns (off the first frame).
+
+    Named ``Pr`` not ``PR`` on purpose — Textual derives the handler name
+    from the class name, and consecutive capitals map to ``on_prstatus_ready``
+    rather than the intended ``on_pr_status_ready``.
+    """
+
+    def __init__(self, pr_statuses: dict[str, list]) -> None:
+        super().__init__()
+        self.pr_statuses = pr_statuses
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -324,27 +341,61 @@ class AgentViewApp(App[None]):
             a.pane_id: tmux.capture_pane(a.pane_id, lines, include_history=deep)
             for a in agents
         }
-        # PR status for agents with a *recorded* PR only (no per-pane branch
-        # derivation here — too many gh calls). fetch_status is TTL-cached, so
-        # at most one gh call per PR per minute, and this runs off the UI thread.
-        pr_statuses: dict[str, list] = {}
-        try:
-            from .. import pr as pr_mod
-
-            for a in agents:
-                sts = [s for s in (pr_mod.fetch_status(u) for u in a.pr_urls) if s]
-                if sts:
-                    pr_statuses[a.pane_id] = sts
-        except Exception:
-            pass  # PR status is best-effort; never break the refresh
-        self.post_message(SnapshotReady(agents, previews, pr_statuses))
+        # Post the visible content immediately — previews are what the popup
+        # was opened to show, and they're all local (tmux + one ps). PR status
+        # is a network round-trip (~1.5s cold per PR) and would otherwise block
+        # the first frame, so it's fetched in a separate worker below.
+        self.post_message(SnapshotReady(agents, previews))
 
     async def on_snapshot_ready(self, message: SnapshotReady) -> None:
         self.agents = message.agents
         self._previews = message.previews
-        self._pr_statuses = message.pr_statuses
+        # Keep the previously-known PR statuses (don't clear) so subtitles
+        # don't flicker while the PR worker re-fetches in the background.
         await self._rebuild_view()
         self.snapshots_applied += 1
+        self._refresh_pr_statuses(message.agents)
+
+    def _refresh_pr_statuses(self, agents: list[AgentPane]) -> None:
+        """Fetch PR status off the UI thread; skip entirely when no PRs."""
+        if not any(a.pr_urls for a in agents):
+            if self._pr_statuses:
+                self._pr_statuses = {}
+            return
+        self.run_worker(
+            lambda: self._pr_worker(agents),
+            thread=True,
+            exclusive=True,
+            group="pr",
+        )
+
+    def _pr_worker(self, agents: list[AgentPane]) -> None:
+        # Recorded PRs only (no per-pane branch derivation — too many gh calls).
+        # fetch_status is TTL-cached, so after the first fetch this is instant.
+        # The calls are independent, so fan them out instead of summing latency.
+        from concurrent.futures import ThreadPoolExecutor
+
+        from .. import pr as pr_mod
+
+        jobs = [(a.pane_id, u) for a in agents for u in a.pr_urls]
+        if not jobs:
+            return
+        statuses: dict[str, list] = {}
+        try:
+            with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as ex:
+                results = ex.map(lambda j: (j[0], pr_mod.fetch_status(j[1])), jobs)
+                for pane_id, st in results:
+                    if st:
+                        statuses.setdefault(pane_id, []).append(st)
+        except Exception:
+            return  # PR status is best-effort; never break the refresh
+        self.post_message(PrStatusReady(statuses))
+
+    async def on_pr_status_ready(self, message: PrStatusReady) -> None:
+        if message.pr_statuses == self._pr_statuses:
+            return  # unchanged — skip a redundant rebuild
+        self._pr_statuses = message.pr_statuses
+        await self._rebuild_view()
 
     def _filtered(self) -> list[AgentPane]:
         if not self.filter_query:
