@@ -7,8 +7,8 @@ from agent_view import pr, state
 
 def test_extract_from_claude_posttooluse_payload():
     payload = ('{"tool_name":"Bash","tool_input":{"command":"gh pr create --fill"},'
-               '"tool_response":{"stdout":"https://github.com/bitsoex/stocks/pull/42\\n"}}')
-    assert pr.extract_pr_url(payload) == "https://github.com/bitsoex/stocks/pull/42"
+               '"tool_response":{"stdout":"https://github.com/someorg/somerepo/pull/42\\n"}}')
+    assert pr.extract_pr_url(payload) == "https://github.com/someorg/somerepo/pull/42"
 
 
 def test_extract_from_already_exists_notice():
@@ -28,7 +28,7 @@ def test_extract_none_without_url():
 
 
 def test_parse_url():
-    assert pr.parse_url("https://github.com/bitsoex/stocks/pull/42") == ("bitsoex/stocks", 42)
+    assert pr.parse_url("https://github.com/someorg/somerepo/pull/42") == ("someorg/somerepo", 42)
     assert pr.parse_url("not-a-url") == (None, None)
 
 
