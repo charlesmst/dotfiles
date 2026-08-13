@@ -4,4 +4,4 @@
 # argument, e.g. {"type":"agent-turn-complete","last-assistant-message":...}.
 # Codex runs this from the agent's process so $TMUX_PANE identifies the pane.
 exec "$HOME/.local/bin/agent-view" event pending \
-    --agent codex --unless-focused --payload "${1:-}"
+    --agent codex --event turn-complete --unless-focused --payload "${1:-}"

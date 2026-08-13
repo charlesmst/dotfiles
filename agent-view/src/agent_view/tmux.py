@@ -73,6 +73,32 @@ def capture_pane(pane_id: str, lines: int, include_history: bool = False) -> str
     return "\n".join(stripped[-lines:])
 
 
+def pane_location(pane_id: str, timeout: float = 0.3) -> str | None:
+    """``session:window.pane`` for a pane id, or None. Bounded and never raises.
+
+    Used by the opt-in push-notify path, so it must fail fast and quietly
+    rather than stall a hook when tmux is slow or absent.
+    """
+    try:
+        out = subprocess.run(
+            [
+                *_base_cmd(),
+                "display-message", "-p", "-t", pane_id,
+                "#{session_name}:#{window_index}.#{pane_index}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        ).stdout.strip()
+        # A missing pane can still render the format with empty fields (":.").
+        # Only return a location that has a real session name.
+        if not out or out.split(":", 1)[0] == "":
+            return None
+        return out
+    except Exception:
+        return None
+
+
 def jump_to_pane(session: str, window_index: str, pane_id: str) -> None:
     run("switch-client", "-t", session)
     run("select-window", "-t", f"{session}:{window_index}")

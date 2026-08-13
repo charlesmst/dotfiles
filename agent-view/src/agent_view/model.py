@@ -49,6 +49,8 @@ class AgentPane:
     last_activity: float  # epoch seconds of last pane output
     pending_message: str | None = None  # set when a pending marker exists
     pending_since: float | None = None
+    pending_event: str | None = None  # hook event: stop|turn-complete|notification
+    pr_urls: list[str] = field(default_factory=list)  # recorded PRs for this session
     now: float = field(default_factory=time.time)
 
     @property

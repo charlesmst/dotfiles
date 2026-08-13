@@ -65,6 +65,29 @@ async def test_pending_agent_sorts_first_and_shows_message(tmux_server):
         assert first.pending_message == "needs review"
 
 
+async def test_recorded_pr_renders_in_tile(tmux_server, monkeypatch):
+    """A recorded PR shows on the agent's tile, with status from gh (stubbed)."""
+    from agent_view import pr
+
+    pane = tmux_server.start_agent_session("shipit", "claude")
+    state.record_pr(pane, "https://github.com/o/n/pull/42")
+
+    fake = pr.PRStatus(url="https://github.com/o/n/pull/42", number=42, title="t",
+                       pr_state="OPEN", is_draft=False, passed=5, failed=0, pending=1)
+    monkeypatch.setattr(pr, "fetch_status", lambda url, ttl=60.0: fake)
+
+    app = AgentViewApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await _settle(pilot, app, min_tiles=1)
+        # PR status is fetched off the first frame, so it lands a beat later.
+        deadline = time.time() + 5
+        while time.time() < deadline and app._pr_statuses.get(pane) != [fake]:
+            await pilot.pause(0.1)
+        assert app._pr_statuses.get(pane) == [fake]
+        tile = next(t for t in app.query(AgentTile) if t.agent.pane_id == pane)
+        assert "PR" in tile.border_subtitle and "42" in tile.border_subtitle
+
+
 async def test_kill_agent_with_confirm(tmux_server):
     tmux_server.start_agent_session("doomed", "claude")
 

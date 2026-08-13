@@ -12,6 +12,22 @@ def test_mark_and_load_pending(tmp_path, monkeypatch):
     assert markers["%5"].since > 0
 
 
+def test_marker_records_event_kind(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
+    state.mark_pending("%9", message="needs permission", agent="claude",
+                       event="notification")
+    m = state.load_pending()["%9"]
+    assert m.event == "notification" and m.agent == "claude"
+
+
+def test_legacy_marker_has_no_event(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
+    import os as _os
+    _os.makedirs(tmp_path / "pending")
+    (tmp_path / "pending" / "%8").touch()
+    assert state.load_pending()["%8"].event is None
+
+
 def test_clear_pending(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path))
     state.mark_pending("%5")

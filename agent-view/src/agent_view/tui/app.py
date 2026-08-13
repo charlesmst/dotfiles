@@ -93,6 +93,48 @@ def subtitle_markup(agent: AgentPane) -> str:
     return f" [dim]idle {format_age(agent.idle_seconds)}[/] "
 
 
+PR_STATE_COLORS = {"OPEN": "green", "MERGED": "magenta", "CLOSED": "grey50"}
+
+
+def pr_summary_markup(status) -> str:
+    """Rich markup for a PR status (used in tile/preview subtitles)."""
+    color = PR_STATE_COLORS.get(status.pr_state, "cyan")
+    label = f"#{status.number} {status.pr_state}" if status.number else status.pr_state
+    if status.is_draft and status.pr_state == "OPEN":
+        label += " draft"
+    out = f"[{color} bold]PR {label}[/]"
+    if status.total:
+        if status.failed:
+            out += f" [red]✗{status.failed}/{status.total}[/]"
+        elif status.pending:
+            out += f" [yellow]⣿{status.pending}/{status.total}[/]"
+        else:
+            out += f" [green]✓{status.passed}/{status.total}[/]"
+    return out
+
+
+def pr_row_marker(statuses: list) -> Text:
+    """A compact PR marker for a list row (count when there's more than one)."""
+    text = Text()
+    if len(statuses) == 1:
+        s = statuses[0]
+        color = "red" if s.failed else PR_STATE_COLORS.get(s.pr_state, "cyan")
+        text.append(" ⇥", style=color)
+        if s.number:
+            text.append(str(s.number), style=color)
+    else:
+        color = "red" if any(s.failed for s in statuses) else "cyan"
+        text.append(f" ⇥×{len(statuses)}", style=color)
+    return text
+
+
+def pr_subtitle_markup(statuses: list) -> str:
+    """Border-subtitle fragment for one or many PRs."""
+    if len(statuses) == 1:
+        return pr_summary_markup(statuses[0])
+    return pr_summary_markup(statuses[0]) + f" [dim](+{len(statuses) - 1} more)[/]"
+
+
 def ansi_preview(preview_ansi: str) -> Text:
     text = Text.from_ansi(preview_ansi)
     # Crop, don't wrap: pane content is already wrapped at the source
@@ -110,12 +152,15 @@ class AgentTile(Static):
         self.agent = agent
         self._lines: list[Text] = []
 
-    def update_agent(self, agent: AgentPane, preview_ansi: str) -> None:
+    def update_agent(self, agent: AgentPane, preview_ansi: str, pr_statuses=None) -> None:
         self.agent = agent
         text = Text.from_ansi(preview_ansi)
         self._lines = list(text.split("\n")) if preview_ansi else []
         self.border_title = title_markup(agent)
-        self.border_subtitle = subtitle_markup(agent)
+        subtitle = subtitle_markup(agent)
+        if pr_statuses:
+            subtitle += f"[dim]·[/] {pr_subtitle_markup(pr_statuses)} "
+        self.border_subtitle = subtitle
         for st in AgentState:
             self.set_class(agent.state == st, f"-{st.value}")
         self.refresh(layout=False)
@@ -148,12 +193,35 @@ class AgentListPanel(Static):
 
 
 class SnapshotReady(Message):
-    """Posted (thread-safely) by the refresh worker with fresh data."""
+    """Posted (thread-safely) by the refresh worker with fresh data.
 
-    def __init__(self, agents: list[AgentPane], previews: dict[str, str]) -> None:
+    Carries only the locally-derived data (panes + captured previews) so it
+    can be posted the instant those are ready. PR status is fetched
+    separately (network) and arrives later via ``PRStatusReady`` — it must
+    never delay the first frame.
+    """
+
+    def __init__(
+        self,
+        agents: list[AgentPane],
+        previews: dict[str, str],
+    ) -> None:
         super().__init__()
         self.agents = agents
         self.previews = previews
+
+
+class PrStatusReady(Message):
+    """Posted by the PR worker once ``gh`` returns (off the first frame).
+
+    Named ``Pr`` not ``PR`` on purpose — Textual derives the handler name
+    from the class name, and consecutive capitals map to ``on_prstatus_ready``
+    rather than the intended ``on_pr_status_ready``.
+    """
+
+    def __init__(self, pr_statuses: dict[str, list]) -> None:
+        super().__init__()
+        self.pr_statuses = pr_statuses
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -237,6 +305,7 @@ class AgentViewApp(App[None]):
         self.selected = 0
         self.view_mode = state.load_view_mode()
         self._previews: dict[str, str] = {}
+        self._pr_statuses: dict[str, list] = {}  # pane_id → [PRStatus] (recorded PRs)
         self._tile_order: list[str] | None = None  # pane ids currently mounted
         self._preview_pane: str | None = None  # pane shown in the list preview
         self.snapshots_applied = 0  # refresh cycles completed (tests wait on it)
@@ -272,13 +341,61 @@ class AgentViewApp(App[None]):
             a.pane_id: tmux.capture_pane(a.pane_id, lines, include_history=deep)
             for a in agents
         }
+        # Post the visible content immediately — previews are what the popup
+        # was opened to show, and they're all local (tmux + one ps). PR status
+        # is a network round-trip (~1.5s cold per PR) and would otherwise block
+        # the first frame, so it's fetched in a separate worker below.
         self.post_message(SnapshotReady(agents, previews))
 
     async def on_snapshot_ready(self, message: SnapshotReady) -> None:
         self.agents = message.agents
         self._previews = message.previews
+        # Keep the previously-known PR statuses (don't clear) so subtitles
+        # don't flicker while the PR worker re-fetches in the background.
         await self._rebuild_view()
         self.snapshots_applied += 1
+        self._refresh_pr_statuses(message.agents)
+
+    def _refresh_pr_statuses(self, agents: list[AgentPane]) -> None:
+        """Fetch PR status off the UI thread; skip entirely when no PRs."""
+        if not any(a.pr_urls for a in agents):
+            if self._pr_statuses:
+                self._pr_statuses = {}
+            return
+        self.run_worker(
+            lambda: self._pr_worker(agents),
+            thread=True,
+            exclusive=True,
+            group="pr",
+        )
+
+    def _pr_worker(self, agents: list[AgentPane]) -> None:
+        # Recorded PRs only (no per-pane branch derivation — too many gh calls).
+        # fetch_status is TTL-cached, so after the first fetch this is instant.
+        # The calls are independent, so fan them out instead of summing latency.
+        from concurrent.futures import ThreadPoolExecutor
+
+        from .. import pr as pr_mod
+
+        jobs = [(a.pane_id, u) for a in agents for u in a.pr_urls]
+        if not jobs:
+            return
+        statuses: dict[str, list] = {}
+        try:
+            with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as ex:
+                results = ex.map(lambda j: (j[0], pr_mod.fetch_status(j[1])), jobs)
+                for pane_id, st in results:
+                    if st:
+                        statuses.setdefault(pane_id, []).append(st)
+        except Exception:
+            return  # PR status is best-effort; never break the refresh
+        self.post_message(PrStatusReady(statuses))
+
+    async def on_pr_status_ready(self, message: PrStatusReady) -> None:
+        if message.pr_statuses == self._pr_statuses:
+            return  # unchanged — skip a redundant rebuild
+        self._pr_statuses = message.pr_statuses
+        await self._rebuild_view()
 
     def _filtered(self) -> list[AgentPane]:
         if not self.filter_query:
@@ -342,7 +459,11 @@ class AgentViewApp(App[None]):
 
         tiles = list(grid.query(AgentTile))
         for i, (agent, tile) in enumerate(zip(self.filtered_agents, tiles)):
-            tile.update_agent(agent, self._previews.get(agent.pane_id, ""))
+            tile.update_agent(
+                agent,
+                self._previews.get(agent.pane_id, ""),
+                self._pr_statuses.get(agent.pane_id) or [],
+            )
             tile.set_class(i == self.selected, "-selected")
 
     def _render_list(self) -> None:
@@ -382,6 +503,9 @@ class AgentViewApp(App[None]):
             row.append(fit(agent.title or "-", 10), style="dim")
             age_style = "red" if agent.state == AgentState.STALE else "dim"
             row.append(format_age(agent.idle_seconds).rjust(4), style=age_style)
+            pr_statuses = self._pr_statuses.get(agent.pane_id)
+            if pr_statuses:
+                row.append_text(pr_row_marker(pr_statuses))
             if selected:
                 row.stylize("reverse")
             rows.append_text(row)
@@ -391,7 +515,11 @@ class AgentViewApp(App[None]):
 
         agent = self.filtered_agents[self.selected]
         preview.border_title = title_markup(agent)
-        preview.border_subtitle = subtitle_markup(agent)
+        subtitle = subtitle_markup(agent)
+        pr_statuses = self._pr_statuses.get(agent.pane_id)
+        if pr_statuses:
+            subtitle += f"[dim]·[/] {pr_subtitle_markup(pr_statuses)} [dim]^o open[/] "
+        preview.border_subtitle = subtitle
         for st in AgentState:
             preview.set_class(agent.state == st, f"-{st.value}")
 
@@ -416,7 +544,7 @@ class AgentViewApp(App[None]):
             counts += f" · [red]✖ {stale} stale[/]"
         other = "list" if self.view_mode == "grid" else "grid"
         help_text = (
-            "[dim]enter[/] jump  [dim]^d[/] kill agent  [dim]^k[/] kill session"
+            "[dim]enter[/] jump  [dim]^o[/] PR  [dim]^d[/] kill agent  [dim]^k[/] kill session"
             f"  [dim]^l[/] {other}"
         )
         if self.view_mode == "list":
@@ -470,6 +598,33 @@ class AgentViewApp(App[None]):
         state.clear_pending(agent.pane_id)
         tmux.jump_to_pane(agent.session, agent.window_index, agent.pane_id)
         self.exit()
+
+    def open_pr(self) -> None:
+        """Open the selected agent's PR(s) in the browser (recorded, else derived)."""
+        agent = self.current
+        if agent is None:
+            return
+        # URLs we already have status for; else resolve (may derive) in-worker.
+        known = [s.url for s in self._pr_statuses.get(agent.pane_id, []) if s.url]
+
+        def _worker() -> None:
+            from .. import pr as pr_mod
+
+            urls = known or pr_mod.pane_pr_urls(agent)
+            if not urls:
+                self.call_from_thread(
+                    self.notify, f"no PR for {agent.location}", severity="warning"
+                )
+                return
+            opened = sum(1 for u in urls if pr_mod.open_in_browser(u))
+            self.call_from_thread(
+                self.notify,
+                f"opening {opened} PR(s) for {agent.location}" if opened
+                else "failed to open PR",
+                severity="information" if opened else "error",
+            )
+
+        self.run_worker(_worker, thread=True, group="open-pr")
 
     def _kill_agent(self) -> None:
         agent = self.current
@@ -558,6 +713,9 @@ class AgentViewApp(App[None]):
         elif key == "ctrl+l":
             event.stop()
             await self._toggle_view_mode()
+        elif key == "ctrl+o":
+            event.stop()
+            self.open_pr()
         elif key in ("pageup", "pagedown"):
             event.stop()
             self._scroll_preview(-1 if key == "pageup" else 1)
