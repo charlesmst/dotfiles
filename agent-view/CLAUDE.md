@@ -141,8 +141,10 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   `session_id`, `url`. It can't ride `events.sock`: `fleet-listen.py` (staff-support) drops
   everything but `pending`/`pr`. `remote-finished` / `-failed` / `-needs-input` / `-gone` / `-idle-expired` come from the status
   lookup only — never invent one without it. **Exactly once**: `remote.announce` claims the state
-  (`state.claim_notification`, `RemoteRef.notified`, under the record's flock — the same lock as
-  status writes and removal) *before* appending, and gives the claim back if the append fails; so the
+  (`state.claim_notification`; the marker is the file `remote-notified/<id>`, written under the record's
+  flock — the same lock as status writes and removal — and **deliberately not a field in the record**:
+  an older agent-view left open rewrites records from its own field list and silently dropped it, which
+  re-announced every state on each of its polls) *before* appending, and gives the claim back if the append fails; so the
   monitor, the overview and `ls` can all poll. `refresh_status` also announces any notable state
   not yet announced from cached data (a crash between recording and announcing loses nothing;
   records older than `ANNOUNCE_MAX_AGE` are marked, not re-announced, except `needs-input`). `gone` =

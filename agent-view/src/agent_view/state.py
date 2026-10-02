@@ -282,6 +282,9 @@ class RemoteRef:
     # The attention state last announced in agent-events.log (finished | failed | needs-input |
     # gone | idle-expired), claimed under the record's lock before the line is written, so any
     # number of pollers (monitor, TUI, `ls`) announce a state once. Reset when the status moves.
+    # NOT stored in the record file: it lives in ``remote-notified/<id>`` (see _marker_path), because
+    # an older agent-view still running (a TUI left open) rewrites the record from its own field
+    # list and would silently drop it — which re-announced every state each time it polled.
     notified: str | None = None
 
 
@@ -310,7 +313,8 @@ def record_remote(ref: RemoteRef, revive: bool = False) -> bool:
     ref.recorded_at = ref.recorded_at or time.time()
     ref.created_at = ref.created_at or ref.recorded_at
     with open(path, "w") as f:
-        f.write(json.dumps(ref.__dict__))
+        f.write(_dump(ref))
+    _write_marker(ref.session_id, None)  # a (re)recorded session starts unannounced
     return True
 
 
@@ -325,6 +329,39 @@ def _is_dismissed(path: str) -> bool:
             return bool((json.loads(f.read() or "{}") or {}).get("dismissed"))
     except (OSError, json.JSONDecodeError, AttributeError):
         return False
+
+
+def _marker_path(session_id: str) -> str:
+    return os.path.join(base_dir(), "remote-notified", session_id)
+
+
+def _read_marker(session_id: str) -> str | None:
+    try:
+        with open(_marker_path(session_id)) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def _write_marker(session_id: str, kind: str | None) -> None:
+    """Callers hold the record's lock. ``None`` clears it."""
+    path = _marker_path(session_id)
+    if kind is None:
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(kind)
+
+
+def _dump(ref: RemoteRef) -> str:
+    """The record as stored: everything but the announcement marker (kept out of the file)."""
+    d = dict(ref.__dict__)
+    d.pop("notified", None)
+    return json.dumps(d)
 
 
 def load_remote() -> dict[str, RemoteRef]:
@@ -345,7 +382,9 @@ def load_remote() -> dict[str, RemoteRef]:
             continue
         if not isinstance(data, dict) or not data.get("url"):
             continue
-        out[name] = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": name})
+        ref = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": name})
+        ref.notified = _read_marker(name)  # never trust a copy inside the record file
+        out[name] = ref
     return out
 
 
@@ -377,7 +416,8 @@ def dismiss_remote(session_id: str) -> bool:
             )
             f.seek(0)
             f.truncate()
-            f.write(json.dumps(tomb.__dict__))
+            f.write(_dump(tomb))
+            _write_marker(session_id, None)
             return True
     except (OSError, json.JSONDecodeError):
         return False
@@ -421,15 +461,19 @@ def update_remote_status(
             ref.last_event_at = last_event_at or ref.last_event_at
             ref.last_message = last_message or ref.last_message
             ref.pool_name = pool_name or ref.pool_name
+            cur = _read_marker(session_id)
             if changed:
                 ref.status_changed_at = now
-                if ref.notified != "idle-expired":  # that one resets on new activity, not on a status flip
-                    ref.notified = None  # a new state: it may be announced (again) when it is notable
-            if last_event_at and last_event_at != data.get("last_event_at") and ref.notified == "idle-expired":
-                ref.notified = None  # it woke up since: a later quiet spell is a new event
+                if cur != "idle-expired":  # that one resets on new activity, not on a status flip
+                    _write_marker(session_id, None)  # a new state: it may be announced (again) when notable
+                    cur = None
+            if last_event_at and last_event_at != data.get("last_event_at") and cur == "idle-expired":
+                _write_marker(session_id, None)  # it woke up since: a later quiet spell is a new event
+                cur = None
+            ref.notified = cur
             f.seek(0)
             f.truncate()
-            f.write(json.dumps(ref.__dict__))
+            f.write(_dump(ref))
             return prev, changed, ref
     except (OSError, json.JSONDecodeError, TypeError):
         return None, False, None
@@ -461,14 +505,13 @@ def _set_notified(session_id: str, kind: str | None, expect) -> RemoteRef | None
             data = json.loads(f.read() or "{}")
             if not isinstance(data, dict) or not data.get("url") or data.get("dismissed"):
                 return None
-            if not expect(data.get("notified")):
+            if not expect(_read_marker(session_id)):
                 return None
-            data["notified"] = kind
-            f.seek(0)
-            f.truncate()
-            f.write(json.dumps(data))
+            _write_marker(session_id, kind)
             fields = RemoteRef.__dataclass_fields__
-            return RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": session_id})
+            ref = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": session_id})
+            ref.notified = kind
+            return ref
     except (OSError, json.JSONDecodeError, TypeError):
         return None
 
@@ -493,6 +536,7 @@ def clear_remote(session_id: str) -> bool:
         return False
     try:
         os.remove(os.path.join(remote_dir(), session_id))
+        _write_marker(session_id, None)
         return True
     except FileNotFoundError:
         return False

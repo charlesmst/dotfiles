@@ -77,6 +77,8 @@ def record(sid=SID, **kw):
     fields.update(kw)
     ref = state.RemoteRef(**fields)
     assert state.record_remote(ref)
+    if ref.notified:  # the announcement marker lives outside the record file
+        state._write_marker(sid, ref.notified)
     return ref
 
 
@@ -179,6 +181,98 @@ def test_the_status_is_still_announced_when_the_poll_that_saw_it_did_not_write(c
     assert names() == ["remote-failed"]
 
 
+def old_version_poll(sid=SID):
+    """What an older agent-view (e.g. a TUI left open for a day) does on each poll: rewrite the
+    record from the field list it knows, which has no announcement field."""
+    path = os.path.join(state.remote_dir(), sid)
+    data = json.load(open(path))
+    data.pop("notified", None)
+    data["status_checked_at"] = time.time()
+    open(path, "w").write(json.dumps(data))
+
+
+def test_an_older_agent_view_rewriting_the_record_cannot_cause_a_second_announcement(cloud):
+    """The bug: a stale TUI process dropped the marker on every poll, so the next monitor/overview
+    pass announced the same needs-input again (seen live: 3 sessions x 3 lines, 12-17s apart)."""
+    record()
+    cloud.state[SID] = "needs-input"
+    poll()
+    assert names() == ["remote-needs-input"]
+    for _ in range(4):
+        old_version_poll()
+        poll()
+        poll(force=False)
+    assert names() == ["remote-needs-input"]
+    assert "notified" not in json.load(open(os.path.join(state.remote_dir(), SID)))  # not kept in the record at all
+
+
+def test_the_marker_survives_a_restart_and_is_per_session(cloud):
+    record()
+    record(SID2)
+    cloud.state[SID] = cloud.state[SID2] = "failed"
+    poll()
+    remote._status_backoff.clear()
+    poll()  # "a restart": nothing in memory knows what was announced
+    assert sorted(e["session_id"] for e in lines()) == sorted([SID, SID2])
+
+
+def test_removing_clears_the_marker_and_a_removed_session_stays_silent_after_a_fresh_record(cloud):
+    record()
+    cloud.state[SID] = "needs-input"
+    poll()
+    assert state._read_marker(SID) == "needs-input"
+    state.dismiss_remote(SID)
+    assert state._read_marker(SID) is None
+    for _ in range(3):
+        poll()
+        remote.monitor(once=True, scan=False)
+    assert names() == ["remote-needs-input"]  # nothing after the removal
+    state.clear_remote(SID)  # pruned
+    assert not os.path.exists(state._marker_path(SID))
+
+
+def test_four_emitters_at_once_in_separate_processes_write_one_line(tmp_path, monkeypatch):
+    """Real processes (a monitor pass, an overview, `remote watch`…) racing on the same state."""
+    import sys
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            time.sleep(0.15)  # keep the processes overlapping
+            if self.path.endswith("/events"):
+                body = json.dumps({"data": [{"event_type": "assistant", "sequence_num": "1", "payload": {
+                    "type": "assistant", "message": {"content": [{"type": "text", "text": "Need a decision."}]}}}]})
+            else:
+                body = json.dumps({"response_shape": {"worker_status": "requires_action"}})
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+    from http.server import ThreadingHTTPServer
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = tmp_path / "state"
+    monkeypatch.setenv("AGENT_ATTENTION_DIR", str(base))
+    record()
+    record(SID2)
+    env = {**os.environ, "AGENT_ATTENTION_DIR": str(base), "AGENT_VIEW_CLAUDE_API": f"http://127.0.0.1:{srv.server_port}",
+           "CLAUDE_CODE_OAUTH_TOKEN": "test-token", "AGENT_VIEW_NO_WATCH": "1"}
+    env.pop("AGENT_VIEW_NO_STATUS", None)
+    cmd = [sys.executable, "-m", "agent_view.cli", "remote", "watch", "--once", "--json"]
+    try:
+        for _round in range(2):  # the second round is "after a restart"
+            procs = [subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) for _ in range(4)]
+            assert [p.wait(timeout=60) for p in procs] == [0, 0, 0, 0]
+    finally:
+        srv.shutdown()
+    got = sorted(e["session_id"] for e in lines())
+    assert got == sorted([SID, SID2])  # one line each, not four (or eight)
+
+
 # --- removed sessions emit nothing ------------------------------------------------------------
 
 
@@ -264,8 +358,7 @@ def test_activity_resets_idle_expiry_and_recent_or_finished_sessions_are_left_al
     cloud.state[SID] = cloud.state[SID2] = "finished"
     poll()
     assert "remote-idle-expired" not in names()
-    ref = state.load_remote()[SID]
-    ref.notified = "idle-expired"
+    state._write_marker(SID, "idle-expired")
     state.update_remote_status(SID, "idle", last_event_at=iso(60))  # woke up…
     assert state.load_remote()[SID].notified is None  # …so a later quiet spell can be announced again
 
