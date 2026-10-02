@@ -13,7 +13,7 @@ import pytest
 
 from agent_view import cloudstatus, remote, state, tmux
 from agent_view.cli import main
-from agent_view.tui.app import AgentTile, AgentViewApp
+from agent_view.tui.app import AgentTile, AgentViewApp, ConfirmScreen
 
 pytestmark = pytest.mark.integration
 
@@ -217,6 +217,9 @@ async def test_remote_session_is_a_normal_tile_with_a_live_peek(remote_tile, tmu
         else:
             panel = str(app.query_one("#agent-list").render())
             assert "☁" in panel and "remote session_01BB" in panel
+            # both tiles are "working", so which sorts first (and is auto-selected) depends on
+            # timing: select the remote one explicitly before reading the preview
+            app.select_pane(remote_agent.pane_id)
             assert "REMOTE" in app.query_one("#preview").border_title
         bar = str(app.query_one("#statusbar").render())
         assert "1/1 agents" in bar and "☁ 1 remote" in bar
@@ -278,3 +281,122 @@ def test_discovery_announces_a_new_session_once(launched, tmp_path):
     e = lines[0]
     assert (e["stream"], e["kind"], e["session_id"], e["url"]) == ("remote", "remote", SID, URL)
     assert e["status"] == "unknown" and e["title"] == "Environment diagnostics check"
+
+
+# --- removing a remote tile (ctrl-x) ------------------------------------------------------
+
+async def _cycles(pilot, app, n=3, timeout=15.0):
+    """Let ``n`` more refresh cycles (and the remote worker behind each) complete."""
+    import time
+
+    target = app.snapshots_applied + n
+    deadline = time.time() + timeout
+    while time.time() < deadline and app.snapshots_applied < target:
+        await pilot.pause(0.1)
+    await pilot.pause(0.6)
+
+
+def _remote_ids(app):
+    return [a.remote.session_id for a in app.filtered_agents if getattr(a, "is_remote", False)]
+
+
+async def test_ctrl_x_asks_first_and_cancel_keeps_the_tile(remote_tile):
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        await pilot.press("ctrl+x")
+        await pilot.pause(0.3)
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "cloud session is not stopped" in str(app.screen.query_one("Label").render())
+        await pilot.press("n")
+        await pilot.pause(0.3)
+        assert not isinstance(app.screen, ConfirmScreen)
+        assert _remote_ids(app) == [SID] and not state.is_dismissed(SID)
+
+
+@pytest.mark.parametrize("mode", ["grid", "list"])
+async def test_ctrl_x_removes_the_tile_and_it_stays_removed(remote_tile, tmux_server, mode):
+    """Removed once, gone for good — even though the launch block is still in the pane."""
+    tmux_server.start_agent_session("alpha", "claude")
+    state.save_view_mode(mode)
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _settle(pilot, app, min_tiles=1)
+        await _remote_settled(pilot, app)
+        assert _remote_ids(app) == [SID]
+        app.select_pane(next(a.pane_id for a in app.filtered_agents if getattr(a, "is_remote", False)))
+        bar = str(app.query_one("#statusbar").render())
+        assert "^x" in bar and "remove" in bar  # the hint shows while a remote tile is selected
+
+        await pilot.press("ctrl+x")
+        await pilot.pause(0.3)
+        await pilot.press("y")
+        await pilot.pause(0.5)
+
+        assert _remote_ids(app) == [] and state.is_dismissed(SID)
+        assert [a.kind.value for a in app.filtered_agents] == ["claude"]  # the local agent is untouched
+        bar = str(app.query_one("#statusbar").render())
+        assert "☁" not in bar and "^x" not in bar
+        if mode == "grid":
+            assert not any(getattr(t.agent, "is_remote", False) for t in app.query(AgentTile))
+
+        remote._scanned.clear()  # force the scrollback scan to look at the pane again
+        await _cycles(pilot, app, n=3)
+        assert _remote_ids(app) == [] and state.is_dismissed(SID)
+
+
+async def test_a_refresh_already_in_flight_cannot_put_a_removed_tile_back(remote_tile):
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        stale = list(app.remotes)  # what a worker started before the removal would deliver
+        state.dismiss_remote(SID)
+        await app.on_remote_ready(type("M", (), {"remotes": stale})())
+        assert app.remotes == [] and _remote_ids(app) == []
+
+
+async def test_removed_session_returns_after_an_explicit_record(remote_tile):
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        await pilot.press("ctrl+x")
+        await pilot.pause(0.3)
+        await pilot.press("y")
+        await pilot.pause(0.5)
+        assert _remote_ids(app) == []
+
+        assert [r.session_id for r in remote.record_from_output(SCROLLBACK)] == [SID]
+        await _cycles(pilot, app, n=3)
+        assert _remote_ids(app) == [SID] and not state.is_dismissed(SID)
+
+
+async def test_ctrl_x_on_a_local_agent_removes_nothing(remote_tile, tmux_server):
+    pane = tmux_server.start_agent_session("alpha", "claude")
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _settle(pilot, app, min_tiles=1)
+        await _remote_settled(pilot, app)
+        app.select_pane(pane)
+        await pilot.press("ctrl+x")
+        await pilot.pause(0.3)
+        assert not isinstance(app.screen, ConfirmScreen)  # no dialog: nothing to remove
+        assert sorted(a.kind.value for a in app.filtered_agents) == ["claude", "remote"]
+        assert not state.is_dismissed(SID)
+
+
+async def test_removing_keeps_the_selection_in_place(remote_tile, tmux_server):
+    tmux_server.start_agent_session("alpha", "claude")
+    tmux_server.start_agent_session("beta", "claude")
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _settle(pilot, app, min_tiles=2)
+        await _remote_settled(pilot, app)
+        rid = next(a.pane_id for a in app.filtered_agents if getattr(a, "is_remote", False))
+        app.select_pane(rid)
+        before = app.selected
+        await pilot.press("ctrl+x")
+        await pilot.pause(0.3)
+        await pilot.press("y")
+        await pilot.pause(0.5)
+        assert app.current is not None and not getattr(app.current, "is_remote", False)
+        assert app.selected == min(before, len(app.filtered_agents) - 1)

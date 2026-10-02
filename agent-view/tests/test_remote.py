@@ -110,6 +110,87 @@ def test_dismiss_hides_but_is_not_rerecorded(env):
     assert remote.discover(agents=[], panes=[]) == []
 
 
+def test_dismiss_leaves_a_scrubbed_tombstone(env):
+    """Removing a session drops its stored text; only the identity survives."""
+    state.record_remote(_ref(title="secret title", prompt="secret prompt", repo="r", pane_id="%49",
+                             created_at=1234.0))
+    state.update_remote_status(SID, "finished", "secret detail", last_message="last words")
+    assert state.dismiss_remote(SID)
+    with open(os.path.join(state.remote_dir(), SID)) as f:
+        raw = f.read()
+    for gone in ("secret title", "secret prompt", "last words", "secret detail", "%49"):
+        assert gone not in raw
+    ref = state.load_remote()[SID]
+    assert ref.dismissed and ref.url == URL and ref.created_at == 1234.0
+    assert state.is_dismissed(SID) and not state.is_dismissed(GU)
+    assert '"dismissed": true' in raw  # tmux/agent-attention/status.sh greps for exactly this
+
+
+def test_dismiss_unknown_or_unsafe_id_is_a_noop(env):
+    assert not state.dismiss_remote(SID)
+    assert not state.dismiss_remote("../../etc/passwd")
+    assert state.load_remote() == {}
+
+
+def test_scan_never_brings_a_removed_session_back_but_an_explicit_record_does(env):
+    """The launch block stays in the pane's scrollback, so only `remote record` may revive."""
+    (c,) = remote.parse_created(BLOCK)
+    ref = remote._build_ref(c, {"path": str(env)}, "%49", "s:1.0", None)
+    assert remote.register(ref)
+    assert state.dismiss_remote(SID)
+
+    again = remote._build_ref(c, {"path": str(env)}, "%49", "s:1.0", None)
+    assert not remote.register(again)  # what a scrollback scan does
+    assert remote.discover(agents=[], panes=[]) == []
+
+    got = remote.record_from_output(BLOCK)  # an explicit record
+    assert [r.session_id for r in got] == [SID]
+    (s,) = remote.discover(agents=[], panes=[])
+    assert s.session_id == SID and not s.ref.dismissed
+
+
+def test_a_status_poll_cannot_resurrect_or_update_a_removed_session(env):
+    state.record_remote(_ref())
+    state.dismiss_remote(SID)
+    assert state.update_remote_status(SID, "running") == (None, False, None)
+    assert state.load_remote()[SID].dismissed and state.load_remote()[SID].status is None
+
+
+def test_dismiss_waits_for_a_status_poll_holding_the_lock(env):
+    """The race that could undo a removal: a poll that read the old record, then wrote it back."""
+    import fcntl
+    import threading
+
+    state.record_remote(_ref(title="t"))
+    path = os.path.join(state.remote_dir(), SID)
+    done = threading.Event()
+    with open(path, "r+") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)  # a poll is mid-update
+        t = threading.Thread(target=lambda: (state.dismiss_remote(SID), done.set()))
+        t.start()
+        assert not done.wait(0.3)  # dismiss is blocked behind the poll, not racing it
+        fcntl.flock(held, fcntl.LOCK_UN)
+    t.join(5)
+    assert done.is_set() and state.load_remote()[SID].dismissed
+
+
+def test_tombstones_outlive_the_launch_age_but_not_30_days(env):
+    state.record_remote(_ref(created_at=1.0))
+    old = state.load_remote()[SID]
+    old.recorded_at = time.time() - 20 * 86400  # launched long ago…
+    with open(os.path.join(state.remote_dir(), SID), "w") as f:
+        f.write(json.dumps(old.__dict__))
+    state.dismiss_remote(SID)  # …but only just removed
+    state.prune_remote(7 * 86400)
+    assert SID in state.load_remote()  # kept: removal is recent, so a scan can't resurrect it
+
+    path = os.path.join(state.remote_dir(), SID)
+    stale = time.time() - state.TOMBSTONE_SECONDS - 3600
+    os.utime(path, (stale, stale))
+    state.prune_remote(7 * 86400)
+    assert SID not in state.load_remote()
+
+
 def test_prune_drops_only_old_records(env):
     state.record_remote(_ref(created_at=1.0))
     old = state.load_remote()[SID]
@@ -346,3 +427,16 @@ def test_status_counts_remote_sessions_and_skips_forgotten(env, capsys):
     state.dismiss_remote(GU)
     main(["status"])
     assert capsys.readouterr().out == ""
+
+
+def test_cli_forget_says_the_cloud_session_is_untouched_and_is_listed_nowhere_after(env, capsys, monkeypatch):
+    from agent_view.cli import main
+
+    monkeypatch.setattr("agent_view.tmux.list_panes", lambda: [])  # never scan the real tmux server
+    monkeypatch.setattr("agent_view.discovery.discover", lambda: [])
+    remote.record_from_output(JSON_OUT)
+    assert main(["remote", "forget", GU[:14]]) == 0
+    assert "cloud session is untouched" in capsys.readouterr().out
+    assert main(["remote"]) == 0 and "no remote sessions known" in capsys.readouterr().out
+    assert main(["ls", "--json"]) == 0 and GU not in capsys.readouterr().out
+    assert state.is_dismissed(GU)

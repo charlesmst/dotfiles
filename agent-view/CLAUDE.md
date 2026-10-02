@@ -126,7 +126,16 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   ~0.4s on ~20 shell panes. Warm it is memoised on `(pane, last_activity)`.
 - `ls`/`doctor` local output is byte-identical when no remote sessions are known; JSON
   rows for remote carry `kind: "remote"` and `pane_id: null` once the pane is gone.
-- `remote forget` tombstones (`dismissed`) instead of deleting, or the scan re-records it.
+- **Removing** (`remote forget <id>`, `^x` on a remote tile in the TUI, both → `state.dismiss_remote`):
+  local state only, never a request to claude.ai. It rewrites `remote/<id>` as a *scrubbed tombstone*
+  (`dismissed: true`; id/url/times only, stored text dropped) instead of deleting, or the scan would
+  re-record the block still in the pane's scrollback. `dismiss_remote` takes the same flock as
+  `update_remote_status` (and polls skip tombstones), so an in-flight status poll can't write the
+  record back. Only `record_remote(revive=True)` — i.e. an explicit `remote record` — brings one back;
+  the scan never does. Tombstones are pruned 30 days after the *removal* (file mtime), not the launch.
+  The store is deliberately one file per session, not a JSONL: polls read-modify-write a record under
+  its own flock, and `status.sh` greps these files for `"dismissed": true`. The TUI drops results of
+  refreshes already in flight by checking the tombstone (`state.is_dismissed`), not an in-memory set.
 - **Events**: each newly recorded session appends one `remote-created` JSONL line to
   `agent-events.log` (`events.py`) in the `fleet` shape + `stream/kind: remote`,
   `session_id`, `url`. It can't ride `events.sock`: `fleet-listen.py` (staff-support) drops
@@ -138,7 +147,7 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   filtered with local panes; no separate section. The body is a live **peek** (`cloudstatus.fetch_peek`
   → `remote.refresh_peeks`, ~12s active / 5min finished, exponential backoff to 120s on error, last
   good content kept; same GET-only/redacted rules). enter / double-click / `^o` open the claude.ai
-  URL (attach is impossible); `^d`/`^k` are refused. Tiles show for active sessions, and for
+  URL (attach is impossible); `^d`/`^k` are refused; `^x` removes the tile (confirm, local only). Tiles show for active sessions, and for
   finished/failed ones for 24h (`AGENT_VIEW_REMOTE_TILE_HOURS`). Also `tmux/agent-attention/status.sh`
   `⇢ N` (active sessions only). Gotcha: compare against the *last rendered* remote key
   (`_rendered_remote_key`), not a freshly recomputed one, or updates wait for the next 1s tick.

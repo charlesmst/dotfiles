@@ -473,7 +473,7 @@ def cmd_remote(args: argparse.Namespace) -> int:
 
     if args.action == "forget":
         state.dismiss_remote(target.session_id)
-        print(f"forgot {target.session_id}")
+        print(f"forgot {target.session_id} (removed from agent-view only; the cloud session is untouched)")
         return 0
     import webbrowser
 

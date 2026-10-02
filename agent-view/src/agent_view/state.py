@@ -265,8 +265,10 @@ class RemoteRef:
     worktree: str | None = None
     project_dir: str | None = None
     delegator_key: str | None = None  # sidecar session key, when matched
-    # `remote forget`: hidden but kept, so the block still sitting in the pane's
-    # scrollback doesn't get re-recorded on the next scan. Aged out by prune.
+    # `remote forget` / ctrl-x in the TUI: the user removed it from agent-view. A scrubbed
+    # tombstone stays, so the block still sitting in the pane's scrollback isn't re-recorded
+    # by the next scan; only an explicit `remote record` brings it back. Pruned after
+    # TOMBSTONE_SECONDS. Never touches the cloud session itself.
     dismissed: bool = False
     # Last observed cloud status (see cloudstatus.py). None = never observed → "unknown".
     status: str | None = None  # running | idle | needs-input | finished | failed
@@ -283,21 +285,42 @@ def valid_remote_id(session_id: str) -> bool:
     return bool(_REMOTE_ID_RE.match(session_id or ""))
 
 
-def record_remote(ref: RemoteRef) -> bool:
-    """Persist a remote session. Returns True if new; existing ids are kept as-is."""
+def record_remote(ref: RemoteRef, revive: bool = False) -> bool:
+    """Persist a remote session. Returns True if new; existing ids are kept as-is.
+
+    ``revive=True`` is for an *explicit* record (``remote record`` at launch): it also
+    brings back a session the user removed, replacing the scrubbed tombstone with the fresh
+    record. The scrollback scan never revives, or a removed session would return on the
+    next refresh while its launch block is still in the pane.
+    """
     import time
 
     if not valid_remote_id(ref.session_id):
         return False
     path = os.path.join(remote_dir(), ref.session_id)
     if os.path.exists(path):
-        return False  # keep the original record (first sight has the best context)
+        if not (revive and _is_dismissed(path)):
+            return False  # keep the original record (first sight has the best context)
     os.makedirs(remote_dir(), exist_ok=True)
+    ref.dismissed = False
     ref.recorded_at = ref.recorded_at or time.time()
     ref.created_at = ref.created_at or ref.recorded_at
     with open(path, "w") as f:
         f.write(json.dumps(ref.__dict__))
     return True
+
+
+def is_dismissed(session_id: str) -> bool:
+    """True if the user removed this session (its tombstone is on disk)."""
+    return valid_remote_id(session_id) and _is_dismissed(os.path.join(remote_dir(), session_id))
+
+
+def _is_dismissed(path: str) -> bool:
+    try:
+        with open(path) as f:
+            return bool((json.loads(f.read() or "{}") or {}).get("dismissed"))
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return False
 
 
 def load_remote() -> dict[str, RemoteRef]:
@@ -323,13 +346,37 @@ def load_remote() -> dict[str, RemoteRef]:
 
 
 def dismiss_remote(session_id: str) -> bool:
-    ref = load_remote().get(session_id)
-    if ref is None:
+    """Remove a session from agent-view: local state only, the cloud session is not touched.
+
+    Rewrites the record as a tombstone that keeps just the identity (id, url, times) and
+    drops the stored text (title, prompt, last message, repo…). It takes the same lock as
+    ``update_remote_status``, so a status poll already in flight can't write the old record
+    back over it. Returns False for an unknown id.
+    """
+    import fcntl
+
+    if not valid_remote_id(session_id):
         return False
-    ref.dismissed = True
-    with open(os.path.join(remote_dir(), session_id), "w") as f:
-        f.write(json.dumps(ref.__dict__))
-    return True
+    try:
+        with open(os.path.join(remote_dir(), session_id), "r+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            data = json.loads(f.read() or "{}")
+            if not isinstance(data, dict) or not data.get("url"):
+                return False
+            tomb = RemoteRef(
+                session_id=session_id,
+                url=data["url"],
+                created_at=data.get("created_at") or 0.0,
+                recorded_at=data.get("recorded_at") or 0.0,
+                created_source=data.get("created_source") or "first-seen",
+                dismissed=True,
+            )
+            f.seek(0)
+            f.truncate()
+            f.write(json.dumps(tomb.__dict__))
+            return True
+    except (OSError, json.JSONDecodeError):
+        return False
 
 
 def update_remote_status(
@@ -359,6 +406,8 @@ def update_remote_status(
             data = json.loads(f.read() or "{}")
             fields = RemoteRef.__dataclass_fields__
             ref = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": session_id})
+            if ref.dismissed:
+                return None, False, None  # removed while the lookup was in flight: leave the tombstone alone
             prev, now = ref.status, time.time()
             changed = prev != status
             ref.status, ref.status_checked_at = status, now
@@ -403,13 +452,28 @@ def clear_remote(session_id: str) -> bool:
         return False
 
 
+TOMBSTONE_SECONDS = 30 * 86400  # how long a removal is remembered (from the removal, not the launch)
+
+
 def prune_remote(max_age_seconds: float) -> None:
-    """Drop records older than ``max_age_seconds`` (status is unknowable, so age is the only GC)."""
+    """Drop old records (status is unknowable offline, so age is the only GC).
+
+    Live records age out ``max_age_seconds`` after they were recorded; a removal's tombstone
+    lives ``TOMBSTONE_SECONDS`` from when it was removed, so a session removed late in its
+    life doesn't lose the tombstone (and reappear from scrollback) a day later.
+    """
     import time
 
-    cutoff = time.time() - max_age_seconds
+    now = time.time()
     for sid, ref in load_remote().items():
-        if (ref.recorded_at or ref.created_at) < cutoff:
+        if ref.dismissed:
+            try:
+                removed_at = os.path.getmtime(os.path.join(remote_dir(), sid))
+            except OSError:
+                continue
+            if now - removed_at > TOMBSTONE_SECONDS:
+                clear_remote(sid)
+        elif (ref.recorded_at or ref.created_at) < now - max_age_seconds:
             clear_remote(sid)
 
 

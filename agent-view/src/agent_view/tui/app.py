@@ -11,6 +11,7 @@ Keys:
   type to filter (fzf-style) · arrows/tab move · enter jump
   ctrl-d kill agent process · ctrl-k kill tmux session · ctrl-r refresh
   remote (cloud) sessions are tiles too: ☁ REMOTE badge, live peek, enter/ctrl-o open the URL
+  ctrl-x remove the selected remote tile from agent-view (confirm; the cloud session is untouched)
   ctrl-l toggle grid/list · pgup/pgdn scroll preview (list view)
   esc clear filter / quit · ctrl-c quit
 """
@@ -418,7 +419,7 @@ class AgentViewApp(App[None]):
     async def on_snapshot_ready(self, message: SnapshotReady) -> None:
         self.agents = message.agents
         self._previews = message.previews
-        self.remotes = message.remotes
+        self.remotes = self._without_removed(message.remotes)
         self._remote_agents = remote.remote_agents(self.remotes)
         self._remote_previews()
         # Keep the previously-known PR statuses (don't clear) so subtitles
@@ -448,9 +449,17 @@ class AgentViewApp(App[None]):
         for a in self._remote_agents:
             self._previews[a.pane_id] = a.peek_ansi(LIST_CAPTURE_LINES if deep else GRID_CAPTURE_LINES)
 
+    def _without_removed(self, sessions: list) -> list:
+        """Drop sessions the user removed since a refresh began (its result may still list them).
+
+        The tombstone on disk is the source of truth, so a session brought back by an explicit
+        ``remote record`` is shown again without restarting the TUI.
+        """
+        return [s for s in sessions if not state.is_dismissed(s.session_id)]
+
     async def on_remote_ready(self, message: RemoteReady) -> None:
-        self.remotes = message.remotes
-        self._remote_agents = remote.remote_agents(message.remotes)
+        self.remotes = self._without_removed(message.remotes)
+        self._remote_agents = remote.remote_agents(self.remotes)
         self._remote_previews()
         if self._remote_key() == self._rendered_remote_key:
             return  # what's on screen is already current — skip a redundant rebuild
@@ -660,6 +669,8 @@ class AgentViewApp(App[None]):
             "[dim]enter[/] jump/open  [dim]^o[/] PR/open  [dim]^d[/] kill agent  [dim]^k[/] kill session"
             f"  [dim]^l[/] {other}"
         )
+        if getattr(self.current, "is_remote", False):
+            help_text += "  [dim]^x[/] remove"
         if self.view_mode == "list":
             help_text += "  [dim]pgup/pgdn[/] scroll"
         help_text += "  [dim]esc[/] quit"
@@ -764,12 +775,47 @@ class AgentViewApp(App[None]):
 
         self.run_worker(_worker, thread=True, group="open-pr")
 
+    def _remove_remote(self) -> None:
+        """ctrl-x: drop the selected remote tile from this agent-view (local state only)."""
+        agent = self.current
+        if agent is None:
+            return
+        if not getattr(agent, "is_remote", False):
+            self.notify("ctrl-x removes remote (cloud) tiles only; ctrl-d kills a local agent",
+                        severity="warning")
+            return
+        sid, index = agent.remote.session_id, self.selected
+
+        async def _confirmed(yes: bool | None) -> None:
+            if not yes:
+                return
+            state.dismiss_remote(sid)  # one small file write, as for the pending markers
+            await self._after_remove(index)
+
+        self.push_screen(
+            ConfirmScreen(
+                f"Remove [bold]☁ {esc(agent.title or sid)}[/] from agent-view?\n"
+                "[dim]Only this list changes. The cloud session is not stopped or deleted.[/]"
+            ),
+            _confirmed,
+        )
+
+    async def _after_remove(self, index: int) -> None:
+        self.remotes = self._without_removed(self.remotes)
+        self._remote_agents = remote.remote_agents(self.remotes)
+        await self._rebuild_view()
+        if self.filtered_agents:  # stay where the tile was instead of jumping to the first one
+            self.selected = min(index, len(self.filtered_agents) - 1)
+            self._show_selection()
+        self._update_statusbar()
+
     def _kill_agent(self) -> None:
         agent = self.current
         if agent is None:
             return
         if getattr(agent, "is_remote", False):
-            self.notify("a remote session has no local process to kill", severity="warning")
+            self.notify("a remote session has no local process to kill (ctrl-x removes the tile)",
+                        severity="warning")
             return
 
         def _confirmed(yes: bool | None) -> None:
@@ -794,7 +840,8 @@ class AgentViewApp(App[None]):
         if agent is None:
             return
         if getattr(agent, "is_remote", False):
-            self.notify("a remote session is not in a tmux session", severity="warning")
+            self.notify("a remote session is not in a tmux session (ctrl-x removes the tile)",
+                        severity="warning")
             return
         others = sum(1 for a in self.agents if a.session == agent.session) - 1
         extra = f" ({others} more agent(s) inside!)" if others > 0 else ""
@@ -852,6 +899,9 @@ class AgentViewApp(App[None]):
         elif key == "ctrl+k":
             event.stop()
             self._kill_session()
+        elif key == "ctrl+x":
+            event.stop()
+            self._remove_remote()
         elif key == "ctrl+r":
             event.stop()
             self.refresh_data()

@@ -278,9 +278,12 @@ def _build_ref(c: Created, pane: dict | None, pane_id: str | None, location: str
 _scanned: dict[str, float] = {}
 
 
-def register(ref: state.RemoteRef) -> bool:
-    """Persist a new remote session and announce it (``remote-created``) exactly once."""
-    if not state.record_remote(ref):
+def register(ref: state.RemoteRef, revive: bool = False) -> bool:
+    """Persist a new remote session and announce it (``remote-created``) exactly once.
+
+    ``revive`` (explicit ``remote record`` only) also brings back one the user removed.
+    """
+    if not state.record_remote(ref, revive=revive):
         return False
     events.emit(events.remote_created(ref))
     return True
@@ -332,7 +335,7 @@ def record_from_output(text: str, pane_id: str | None = None, prompt: str | None
         c.environment = c.environment or environment
         ref = _build_ref(c, {"path": os.getcwd()}, pane_id, location, server_start,
                          launched_now=True, prompt=prompt)
-        if register(ref):
+        if register(ref, revive=True):  # an explicit record: it brings a removed session back
             out.append(ref)
     return out
 

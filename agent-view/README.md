@@ -47,6 +47,7 @@ idempotent and re-run by `create_links.sh`.
 | pgup / pgdn | scroll the preview (list view; includes scrollback) |
 | ctrl-d | kill the agent process (confirm) |
 | ctrl-k | kill the whole tmux session (confirm) |
+| ctrl-x | remove the selected ☁ remote tile from agent-view (confirm; local only, the cloud session is untouched) |
 | ctrl-r | refresh now (auto-refreshes every 1s) |
 | esc | clear filter, then quit |
 
@@ -194,7 +195,7 @@ agent-view ls                 # remote sessions are listed after the local panes
 agent-view ls --json          # …as rows with "kind": "remote"  (--no-remote to omit)
 agent-view remote             # just the remote ones: id, URL, launch pane, repo/branch, prompt
 agent-view remote open [id]   # open the URL (newest by default)
-agent-view remote forget <id> # hide one
+agent-view remote forget <id> # remove one from agent-view (same as ctrl-x in the overview)
 agent-view show <id|fragment> # details
 # launch-time registry — output passes through unchanged, the session is recorded:
 claude -p "$P" --environment ccpool_… --output-format json | agent-view remote record --prompt "$P"
@@ -212,7 +213,15 @@ excerpt). In the live overview (`prefix + a`) a remote session is a normal tile 
 state colours like local agents, and a live peek at its latest assistant text and tool activity
 (refreshed ~every 12 s, read-only); `enter`/`^o` opens its claude.ai page. The status bar adds a
 `☁ N remote` count, and `tmux/agent-attention/status.sh` adds `⇢ N` to the tmux
-status line. Each new session appends a `remote-created` line to `agent-events.log`. See `REMOTE-SESSIONS.md`.
+status line. Each new session appends a `remote-created` line to `agent-events.log`.
+
+**Removing a remote tile.** Press `ctrl-x` on a ☁ tile (or `agent-view remote forget <id>`) and
+confirm with `y`. That only edits agent-view's own record (`~/.local/state/agent-attention/remote/<id>`,
+one small JSON file per session): the cloud session is not stopped, deleted or touched, and nothing
+is sent to claude.ai. The record is scrubbed down to a tombstone (id, URL, times; the title, prompt
+and last message are dropped), so the launch block still in a pane's scrollback does not bring the
+session back on the next refresh. The tombstone is forgotten after 30 days. Piping the launch
+output into `agent-view remote record` again brings the session back.
 
 ### Pull requests
 
