@@ -43,9 +43,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 
 from .redact import excerpt, redact
@@ -77,42 +76,65 @@ class CloudStatus:
 # --- credential (in memory only) --------------------------------------------
 
 
+# The keychain read is a ``security`` subprocess (~20ms, and a keychain round-trip). Doing it per
+# request meant one spawn for every status and peek GET; the token is kept in this process's memory
+# (never written anywhere) until it expires or the server rejects it.
+_cached: tuple[str, float] | None = None  # (token, expires_at epoch seconds, inf if unknown)
+_cache_lock = threading.Lock()
+
+
+def forget_token() -> None:
+    """Drop the in-memory keychain token (after a 401/403, and between tests)."""
+    global _cached
+    with _cache_lock:
+        _cached = None
+
+
 def _token() -> tuple[str | None, str | None]:
     """(token, None) or (None, reason). The token is never returned to a caller that logs."""
+    global _cached
     env = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "").strip()
     if env:
         return env, None
     if sys.platform != "darwin":
         return None, "no credential"
-    try:
-        out = subprocess.run(
-            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if out.returncode != 0:
+    with _cache_lock:  # held across the read: parallel first lookups share one keychain spawn
+        if _cached and _cached[1] > time.time() + 30:
+            return _cached[0], None
+        try:
+            out = subprocess.run(
+                ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if out.returncode != 0:
+                return None, "no credential"
+            oauth = (json.loads(out.stdout) or {}).get("claudeAiOauth") or {}
+            token = oauth.get("accessToken")
+            expires = oauth.get("expiresAt")  # ms epoch
+            if not token:
+                return None, "no credential"
+            if isinstance(expires, (int, float)) and expires / 1000 < time.time():
+                return None, "token expired"
+            _cached = (token, expires / 1000 if isinstance(expires, (int, float)) else time.time() + 300)
+            return token, None
+        except Exception:
             return None, "no credential"
-        oauth = (json.loads(out.stdout) or {}).get("claudeAiOauth") or {}
-        token = oauth.get("accessToken")
-        expires = oauth.get("expiresAt")  # ms epoch
-        if not token:
-            return None, "no credential"
-        if isinstance(expires, (int, float)) and expires / 1000 < time.time():
-            return None, "token expired"
-        return token, None
-    except Exception:
-        return None, "no credential"
 
 
 # --- request (GET only, no redirects) ---------------------------------------
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *a, **k):  # never forward the bearer elsewhere
-        return None
-
-
 def _get(path: str, token: str) -> tuple[int, bytes]:
     """The only HTTP call in this module, and it is a GET. ``path`` is under /v1/code/sessions."""
+    # urllib (+ ssl) is ~50ms of import; it is only needed once a lookup actually happens, so it
+    # stays off the popup's startup path (and off it entirely for `AGENT_VIEW_NO_STATUS`).
+    import urllib.error
+    import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):  # never forward the bearer elsewhere
+            return None
+
     req = urllib.request.Request(
         f"{BASE_URL}{path}",
         method="GET",
@@ -128,6 +150,8 @@ def _get(path: str, token: str) -> tuple[int, bytes]:
         with opener.open(req, timeout=TIMEOUT) as r:
             return r.status, r.read(4_000_000)
     except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            forget_token()  # re-read the keychain next time (it may have been refreshed)
         return e.code, b""
 
 

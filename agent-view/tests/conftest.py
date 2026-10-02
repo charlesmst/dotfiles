@@ -7,3 +7,13 @@ def _no_cloud_status_lookups(monkeypatch):
     monkeypatch.setenv("AGENT_VIEW_NO_STATUS", "1")
     monkeypatch.setenv("AGENT_VIEW_NO_WATCH", "1")
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_token_cache():
+    """The keychain token is cached in memory per process; no test may inherit another's."""
+    from agent_view import cloudstatus
+
+    cloudstatus.forget_token()
+    yield
+    cloudstatus.forget_token()

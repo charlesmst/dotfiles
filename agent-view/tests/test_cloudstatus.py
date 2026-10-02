@@ -4,7 +4,9 @@ A throwaway local HTTP server stands in for the API; the body is the shape of a 
 response for the demo session (session_01AAA…), trimmed of its 20 KB system prompt.
 """
 import json
+import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
@@ -209,6 +211,77 @@ def test_opt_out_makes_no_request(api, monkeypatch):
     monkeypatch.setenv("AGENT_VIEW_NO_STATUS", "1")
     assert cloudstatus.fetch(SID).state == "unknown"
     assert api.seen == []
+
+
+# --- the keychain token is read once, not once per request -----------------------
+
+
+@pytest.fixture
+def keychain(monkeypatch):
+    """A fake `security` that counts spawns; the credential is not in the environment."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.setattr(cloudstatus.sys, "platform", "darwin")
+
+    class K:
+        spawns = 0
+        expires_ms = (time.time() + 3600) * 1000
+        rc = 0
+
+    def run(cmd, **k):
+        K.spawns += 1
+        out = json.dumps({"claudeAiOauth": {"accessToken": TOKEN, "expiresAt": K.expires_ms}})
+        return subprocess.CompletedProcess(cmd, K.rc, stdout=out, stderr="")
+
+    monkeypatch.setattr(cloudstatus.subprocess, "run", run)
+    return K
+
+
+def test_keychain_token_is_read_once_per_process(keychain):
+    assert [cloudstatus._token() for _ in range(5)] == [(TOKEN, None)] * 5
+    assert keychain.spawns == 1
+
+
+def test_parallel_first_lookups_share_one_keychain_read(keychain):
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(8) as ex:
+        results = list(ex.map(lambda _: cloudstatus._token(), range(8)))
+    assert results == [(TOKEN, None)] * 8 and keychain.spawns == 1
+
+
+def test_an_expiring_or_forgotten_token_is_read_again(keychain):
+    cloudstatus._token()
+    cloudstatus.forget_token()
+    cloudstatus._token()
+    assert keychain.spawns == 2
+    keychain.expires_ms = (time.time() + 10) * 1000  # inside the 30s margin: don't trust it
+    cloudstatus.forget_token()
+    cloudstatus._token()
+    cloudstatus._token()
+    assert keychain.spawns == 4
+
+
+def test_failures_are_not_cached(keychain):
+    keychain.rc = 1
+    assert cloudstatus._token() == (None, "no credential")
+    keychain.rc = 0
+    assert cloudstatus._token() == (TOKEN, None)  # the keychain was unlocked meanwhile
+    assert keychain.spawns == 2
+
+
+def test_a_rejected_token_is_dropped_so_a_refreshed_one_is_picked_up(api, keychain):
+    api.code = 401
+    cloudstatus._token()
+    assert cloudstatus.fetch(SID).reason == "not authorized"
+    cloudstatus._token()
+    assert keychain.spawns == 2  # the 401 forgot it
+
+
+def test_many_lookups_spawn_security_once(api, keychain):
+    for _ in range(4):
+        cloudstatus.fetch(SID)
+        cloudstatus.fetch_peek(SID)
+    assert len(api.seen) == 8 and keychain.spawns == 1
 
 
 # --- transitions -> events ----------------------------------------------------
