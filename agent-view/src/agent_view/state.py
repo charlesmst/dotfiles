@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 
 
@@ -230,6 +231,186 @@ def prune_prs(live_pane_ids: set[str]) -> None:
     for pane_id in list(load_prs()):
         if pane_id not in live_pane_ids:
             clear_pr(pane_id)
+
+
+# --- Remote (cloud) session records -----------------------------------------
+# `claude --environment <ccpool_id>` creates a cloud session and then the local
+# `claude` exits, so the only place its id ever appears is the launching pane's
+# scrollback — which dies with the pane. We therefore persist the identity the
+# first time we see it, one file per session id (not per pane: the pane is
+# usually gone by the time anyone asks). Only identity + launch context is
+# stored — never status, because no local source exposes it.
+
+_REMOTE_ID_RE = re.compile(r"^session_[A-Za-z0-9]+$")
+
+
+def remote_dir() -> str:
+    return os.path.join(base_dir(), "remote")
+
+
+@dataclass
+class RemoteRef:
+    session_id: str  # "session_01Vp…" — also the record's filename stem
+    url: str  # canonical https://claude.ai/code/session_… (query stripped)
+    title: str | None = None  # the cloud session title the CLI printed
+    environment: str | None = None  # ccpool_… from the launch line, if visible
+    pane_id: str | None = None  # tmux pane the launch happened in
+    location: str | None = None  # session:window.pane when first seen
+    created_at: float = 0.0  # launch time (delegator sidecar) else first seen
+    created_source: str = "first-seen"  # "registry" (recorded at launch) | "delegator" | "first-seen"
+    recorded_at: float = 0.0
+    prompt: str | None = None  # prompt summary (delegator sidecar)
+    repo: str | None = None  # launch dir's repo — NOT verified against the runner
+    branch: str | None = None  # launch dir's branch — likewise
+    worktree: str | None = None
+    project_dir: str | None = None
+    delegator_key: str | None = None  # sidecar session key, when matched
+    # `remote forget`: hidden but kept, so the block still sitting in the pane's
+    # scrollback doesn't get re-recorded on the next scan. Aged out by prune.
+    dismissed: bool = False
+    # Last observed cloud status (see cloudstatus.py). None = never observed → "unknown".
+    status: str | None = None  # running | idle | needs-input | finished | failed
+    status_detail: str | None = None
+    status_checked_at: float = 0.0
+    status_changed_at: float = 0.0
+    remote_branch: str | None = None  # the runner's branch (claude/<slug>), when reported
+    last_event_at: str | None = None
+    last_message: str | None = None  # redacted ≤500-char excerpt of the last assistant message
+    pool_name: str | None = None  # the self-hosted runner pool's name ("main"), when reported
+
+
+def valid_remote_id(session_id: str) -> bool:
+    return bool(_REMOTE_ID_RE.match(session_id or ""))
+
+
+def record_remote(ref: RemoteRef) -> bool:
+    """Persist a remote session. Returns True if new; existing ids are kept as-is."""
+    import time
+
+    if not valid_remote_id(ref.session_id):
+        return False
+    path = os.path.join(remote_dir(), ref.session_id)
+    if os.path.exists(path):
+        return False  # keep the original record (first sight has the best context)
+    os.makedirs(remote_dir(), exist_ok=True)
+    ref.recorded_at = ref.recorded_at or time.time()
+    ref.created_at = ref.created_at or ref.recorded_at
+    with open(path, "w") as f:
+        f.write(json.dumps(ref.__dict__))
+    return True
+
+
+def load_remote() -> dict[str, RemoteRef]:
+    """session_id → record for every persisted remote session."""
+    out: dict[str, RemoteRef] = {}
+    try:
+        names = os.listdir(remote_dir())
+    except FileNotFoundError:
+        return out
+    fields = RemoteRef.__dataclass_fields__
+    for name in names:
+        if not valid_remote_id(name):
+            continue
+        try:
+            with open(os.path.join(remote_dir(), name)) as f:
+                data = json.loads(f.read() or "{}")
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or not data.get("url"):
+            continue
+        out[name] = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": name})
+    return out
+
+
+def dismiss_remote(session_id: str) -> bool:
+    ref = load_remote().get(session_id)
+    if ref is None:
+        return False
+    ref.dismissed = True
+    with open(os.path.join(remote_dir(), session_id), "w") as f:
+        f.write(json.dumps(ref.__dict__))
+    return True
+
+
+def update_remote_status(
+    session_id: str,
+    status: str,
+    detail: str | None = None,
+    remote_branch: str | None = None,
+    last_event_at: str | None = None,
+    last_message: str | None = None,
+    pool_name: str | None = None,
+) -> tuple[str | None, bool, RemoteRef | None]:
+    """Record an observed status under an exclusive lock → (previous, changed, ref).
+
+    The lock makes check-then-write atomic across processes (the TUI worker, a
+    ``remote watch`` and ``ls`` can all poll), so each transition is reported by
+    exactly one of them — which is the one that emits the event.
+    """
+    import fcntl
+    import time
+
+    if not valid_remote_id(session_id):
+        return None, False, None
+    path = os.path.join(remote_dir(), session_id)
+    try:
+        with open(path, "r+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            data = json.loads(f.read() or "{}")
+            fields = RemoteRef.__dataclass_fields__
+            ref = RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": session_id})
+            prev, now = ref.status, time.time()
+            changed = prev != status
+            ref.status, ref.status_checked_at = status, now
+            if detail is not None:
+                ref.status_detail = detail
+            ref.remote_branch = remote_branch or ref.remote_branch
+            ref.last_event_at = last_event_at or ref.last_event_at
+            ref.last_message = last_message or ref.last_message
+            ref.pool_name = pool_name or ref.pool_name
+            if changed:
+                ref.status_changed_at = now
+            f.seek(0)
+            f.truncate()
+            f.write(json.dumps(ref.__dict__))
+            return prev, changed, ref
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None, False, None
+
+
+def count_remote(max_age_seconds: float | None = None) -> int:
+    """Active remote sessions (not forgotten/aged out/finished/failed) — records only, no tmux."""
+    import os as _os
+    import time
+
+    if max_age_seconds is None:
+        max_age_seconds = float(_os.environ.get("AGENT_VIEW_REMOTE_DAYS", "7")) * 86400
+    cutoff = time.time() - max_age_seconds
+    return sum(
+        1 for r in load_remote().values()
+        if not r.dismissed and r.status not in ("finished", "failed")
+        and (r.recorded_at or r.created_at) >= cutoff
+    )
+
+
+def clear_remote(session_id: str) -> bool:
+    if not valid_remote_id(session_id):
+        return False
+    try:
+        os.remove(os.path.join(remote_dir(), session_id))
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def prune_remote(max_age_seconds: float) -> None:
+    """Drop records older than ``max_age_seconds`` (status is unknowable, so age is the only GC)."""
+    import time
+
+    cutoff = time.time() - max_age_seconds
+    for sid, ref in load_remote().items():
+        if (ref.recorded_at or ref.created_at) < cutoff:
+            clear_remote(sid)
 
 
 VIEW_MODES = ("grid", "list")

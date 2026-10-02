@@ -19,6 +19,10 @@ PANE_FORMAT = "|".join(
         "#{pane_index}",
         "#{window_name}",
         "#{window_activity}",
+        # Appended last so older 7-field parsing stays valid. The path goes
+        # final because it is the only field that could contain a "|".
+        "#{pane_current_command}",
+        "#{pane_current_path}",
     ]
 )
 
@@ -51,6 +55,8 @@ def list_panes() -> list[dict]:
                     "pane_index": parts[4],
                     "window_name": parts[5],
                     "last_activity": float(parts[6]),
+                    "command": parts[7] if len(parts) > 7 else "",
+                    "path": "|".join(parts[8:]) if len(parts) > 8 else "",
                 }
             )
         except ValueError:
@@ -71,6 +77,24 @@ def capture_pane(pane_id: str, lines: int, include_history: bool = False) -> str
     # Drop trailing blank lines so short sessions don't render as whitespace.
     stripped = out.rstrip("\n").split("\n")
     return "\n".join(stripped[-lines:])
+
+
+def capture_scrollback(pane_id: str, lines: int) -> str:
+    """Plain text of the last ``lines`` scrollback+visible lines, wraps re-joined.
+
+    ``-J`` undoes tmux's soft wrapping so a long line (a URL, a launch command)
+    isn't split by the pane width. No ANSI: this is for parsing, not display.
+    """
+    return run("capture-pane", "-pJ", "-S", f"-{lines}", "-t", pane_id).stdout
+
+
+def server_start_time() -> float | None:
+    """Epoch the tmux server started (pane ids restart from %0 after this)."""
+    out = run("display-message", "-p", "#{start_time}").stdout.strip()
+    try:
+        return float(out)
+    except ValueError:
+        return None
 
 
 def pane_location(pane_id: str, timeout: float = 0.3) -> str | None:

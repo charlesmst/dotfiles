@@ -11,6 +11,7 @@ class AgentKind(str, Enum):
     CLAUDE = "claude"
     CURSOR = "cursor"
     CODEX = "codex"
+    REMOTE = "remote"  # a cloud session (remote.RemoteAgent); never produced by tmux discovery
 
 
 class AgentState(str, Enum):

@@ -7,6 +7,7 @@ Subcommands:
   status          tmux status-line fragment (pending count)
   install         wire hook configs into Claude / Cursor / Codex
   doctor          print discovery snapshot for debugging
+  remote          list/open/forget/record/watch/show remote (cloud) sessions (`claude --environment`)
 
 Hook entrypoints must stay fast and never fail the calling agent: they
 swallow their own errors and exit 0.
@@ -125,8 +126,13 @@ def cmd_status(args: argparse.Namespace) -> int:
     from . import state
 
     count = state.count_pending()
+    remote_count = state.count_remote()
+    parts = []
     if count:
-        print(f"#[fg=yellow,bold]● {count}#[default]", end="")
+        parts.append(f"#[fg=yellow,bold]● {count}#[default]")
+    if remote_count:  # cloud sessions exist (status unknowable locally)
+        parts.append(f"#[fg=magenta,bold]⇢ {remote_count}#[default]")
+    print(" ".join(parts), end="")
     return 0
 
 
@@ -134,15 +140,23 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from . import discovery
     from .model import format_age
 
+    from . import remote
+
     agents = discovery.discover()
+    remotes = remote.discover(agents, refresh=True)
     if not agents:
         print("no live agent panes found")
-        return 0
     for a in agents:
         pending = f"  pending: {a.pending_message}" if a.pending_message else ""
         print(
             f"{a.kind.value:7} {a.state.value:8} {a.location:30} "
             f"pid={a.agent_pid:<8} idle={format_age(a.idle_seconds)}{pending}"
+        )
+    for s in remotes:
+        where = (s.location or s.ref.pane_id or "?") + ("" if s.pane_alive else " (gone)")
+        print(
+            f"{'remote':7} {s.status:8} {where:30} {s.session_id}  "
+            f"{s.flag if s.awaiting_flag else s.url}"
         )
     return 0
 
@@ -186,12 +200,32 @@ def _pr_status_map(reports, children, derive: bool):
     return out
 
 
+def _remote_sessions(agents):
+    """Cloud sessions (`claude --environment …`) known from scrollback/records."""
+    from . import remote
+
+    return remote.discover(agents, refresh=True)
+
+
+def _print_remote_section(remotes) -> None:
+    """Remote rows under the local list; prints nothing when there are none."""
+    from . import remote
+
+    if not remotes:
+        return
+    print(f"\nremote sessions · {len(remotes)} (status: read-only lookup; unknown → open the URL)")
+    for s in remotes:
+        for line in remote.row_lines(s):
+            print(line)
+
+
 def cmd_ls(args: argparse.Namespace) -> int:
     """One-shot list of live agents + status (render once, machine-readable)."""
     from . import discovery, report
 
     agents = discovery.discover()
     reports = [report.report_for(a) for a in agents]
+    remotes = [] if args.no_remote else _remote_sessions(agents)
 
     want_msg = args.last_message
     want_pr = args.pr
@@ -214,11 +248,13 @@ def cmd_ls(args: argparse.Namespace) -> int:
                     for url, st in prs[r.pane.pane_id]
                 ]
             rows.append(d)
+        rows.extend(s.to_dict() for s in remotes)  # kind: "remote"
         print(json.dumps(rows, indent=2))
         return 0
 
     if not reports:
         print("no live agent panes found")
+        _print_remote_section(remotes)
         return 0
 
     for r in reports:
@@ -242,6 +278,207 @@ def cmd_ls(args: argparse.Namespace) -> int:
         counts[r.status.value] = counts.get(r.status.value, 0) + 1
     summary = " · ".join(f"{k} {v}" for k, v in sorted(counts.items()))
     print(f"\n{len(reports)} agents · {summary}")
+    _print_remote_section(remotes)
+    return 0
+
+
+def _show_remote(s, as_json: bool) -> int:
+    if as_json:
+        print(json.dumps(s.to_dict(), indent=2))
+        return 0
+    r = s.ref
+    where = (s.location or r.pane_id or "?") + ("" if s.pane_alive else " (pane gone)")
+    print(f"id       : {r.session_id}")
+    print("kind     : remote")
+    print(f"status   : {s.status_text}")
+    print(f"url      : {r.url}")
+    if r.remote_branch:
+        print(f"branch   : {r.remote_branch}  (the runner's own branch)")
+    if r.title:
+        print(f"title    : {r.title}")
+    if r.environment:
+        print(f"env      : {r.environment}")
+    print(f"launched : {s.age} ago from {where}" + (
+        "  (first seen; launch time unknown)" if r.created_source == "first-seen" else ""
+    ))
+    if s.awaiting_flag:
+        print(f"pane     : {s.flag}")
+    if r.repo or r.worktree or r.branch:
+        print(f"repo     : {'/'.join(filter(None, [r.repo, r.worktree]))}"
+              f"{'@' + r.branch if r.branch else ''}  (launch dir; not verified on the runner)")
+    if r.prompt:
+        print(f"prompt   : {r.prompt}")
+    return 0
+
+
+def _remote_record(args: argparse.Namespace) -> int:
+    """Launch-time registry: pass stdin through unchanged, record any cloud session in it.
+
+    ``claude -p "$P" --environment ccpool_… --output-format json | agent-view remote record``
+    Output is byte-for-byte what the launcher would have seen. Like the hooks it
+    never fails the caller: an unparseable stream only warns on stderr.
+    """
+    data = sys.stdin.read() if not sys.stdin.isatty() else ""
+    sys.stdout.write(data)
+    sys.stdout.flush()
+    try:
+        from . import remote
+
+        pane = args.pane or os.environ.get("TMUX_PANE") or None
+        got = remote.record_from_output(
+            data, pane_id=pane, prompt=args.prompt, environment=args.environment
+        )
+        if not got and not remote.parse_created(data):
+            print("agent-view: no cloud session found in input; nothing recorded",
+                  file=sys.stderr)
+        if args.watch and not os.environ.get("AGENT_VIEW_NO_WATCH"):
+            import subprocess
+
+            for ref in got:  # one detached poller per session; it exits when the session ends
+                subprocess.Popen(
+                    [sys.executable, "-m", "agent_view.cli", "remote", "watch", ref.session_id,
+                     "--timeout", str(args.timeout)],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+    except Exception:
+        pass  # a registry failure must never break the launch
+    return 0
+
+
+def _remote_show(args: argparse.Namespace) -> int:
+    """Details of one remote session; ``--last`` / ``--tail N`` read its events (GET only).
+
+    ``--last`` prints the session's last assistant message, ``--tail N`` its last N events
+    as one redacted line each. Both are live read-only lookups of what the session itself
+    reported; nothing is ever sent into it, and any error prints a fixed reason.
+    """
+    from . import cloudstatus, remote
+
+    sessions = remote.discover(refresh=True)
+    ident = args.id or (sessions[0].session_id if sessions else "")
+    res = remote.resolve(sessions, ident)
+    if res.session is None:
+        print(f"error: {res.error}", file=sys.stderr)
+        return 1
+    s = res.session
+    last = cloudstatus.fetch_last_message(s.session_id) if args.last else None
+    tail = cloudstatus.fetch_tail(s.session_id, args.tail) if args.tail else None
+    if args.json:
+        d = s.to_dict()
+        if last is not None:
+            d["last_message_live"] = {"kind": last.kind, "at": last.at, "reason": last.reason,
+                                      "text": last.text[: args.max]}
+        if tail is not None:
+            d["tail"] = [e.__dict__ for e in tail.entries]
+            d["tail_reason"] = tail.reason
+        print(json.dumps(d, indent=2))
+        return 0
+    if last is None and tail is None:
+        return _show_remote(s, False)
+    print(f"{s.session_id}  {s.status_text}")
+    if last is not None:
+        print(f"\nlast {last.kind or 'message'}" + (f"  ({last.at})" if last.at else "") + ":")
+        if last.ok:
+            body = last.text if len(last.text) <= args.max else last.text[: args.max - 1] + "…"
+            print("\n".join("  " + line for line in body.splitlines()))
+        else:
+            print(f"  (unavailable: {last.reason})")
+    if tail is not None:
+        print("\nevents:")
+        if tail.entries:
+            for e in tail.entries:
+                print(f"  {e.at[11:19] or '--:--:--'}  {e.kind:11} {e.text}")
+        else:
+            print(f"  (unavailable: {tail.reason or 'none'})")
+    return 0
+
+
+def _remote_watch(args: argparse.Namespace) -> int:
+    """Poll cloud status, append transition events, exit when nothing is still active.
+
+    Each session is looked up with a read-only GET; a change into finished / failed /
+    needs-input appends one event to agent-events.log. One watch per session is
+    plenty (and several are safe: transitions are claimed under a lock).
+    Exit codes: 0 all watched sessions reached a terminal state · 2 timed out.
+    """
+    import time
+
+    from . import cloudstatus, remote
+
+    deadline = time.monotonic() + args.timeout
+    while True:
+        sessions = remote.discover(scan=False)
+        if args.id:
+            res = remote.resolve(sessions, args.id)
+            if res.session is None:
+                print(f"error: {res.error}", file=sys.stderr)
+                return 1
+            sessions = [res.session]
+        # Judge and print the very objects the lookup updated: a failed lookup must
+        # read unknown this pass, not fall back to a re-read cached value.
+        for ev in remote.refresh_status(sessions, force=True):
+            print(json.dumps(ev, ensure_ascii=False), flush=True)
+        if args.once:
+            if not args.json:
+                for s in sessions:
+                    print(f"{s.session_id}  {s.status_text}", file=sys.stderr)
+            return 0
+        if all(s.ref.status in cloudstatus.TERMINAL for s in sessions):
+            return 0
+        if time.monotonic() >= deadline:
+            return 2
+        time.sleep(args.interval)
+
+
+def cmd_remote(args: argparse.Namespace) -> int:
+    """List / open / forget / record remote (cloud) sessions started with `--environment`."""
+    if args.action == "record":
+        return _remote_record(args)
+    if args.action == "watch":
+        return _remote_watch(args)
+    if args.action == "show":
+        return _remote_show(args)
+
+    from . import remote, state
+
+    sessions = remote.discover(refresh=args.action == "list")
+    if args.action == "list":
+        if args.json:
+            print(json.dumps([s.to_dict() for s in sessions], indent=2))
+            return 0
+        if not sessions:
+            print("no remote sessions known")
+            return 0
+        for s in sessions:
+            for line in remote.row_lines(s):
+                print(line)
+        print(f"\n{len(sessions)} remote sessions · status: read-only lookup; unknown → open the URL")
+        return 0
+
+    # open / forget: an id, or (open only) default to the newest session.
+    if args.id:
+        res = remote.resolve(sessions, args.id)
+        target = res.session
+        if target is None:
+            print(f"error: {res.error}", file=sys.stderr)
+            for c in res.candidates or []:
+                print(f"    {c.session_id}  {c.url}", file=sys.stderr)
+            return 1
+    elif args.action == "open" and sessions:
+        target = sessions[0]
+    else:
+        print(f"error: `remote {args.action}` needs a session id", file=sys.stderr)
+        return 1
+
+    if args.action == "forget":
+        state.dismiss_remote(target.session_id)
+        print(f"forgot {target.session_id}")
+        return 0
+    import webbrowser
+
+    print(target.url)
+    webbrowser.open(target.url)
     return 0
 
 
@@ -252,6 +489,12 @@ def cmd_show(args: argparse.Namespace) -> int:
     agents = discovery.discover()
     res = report.resolve(agents, args.id)
     if res.pane is None:
+        if not res.candidates:  # not a local agent — maybe a remote session
+            from . import remote
+
+            rres = remote.resolve(remote.discover(agents, refresh=True), args.id)
+            if rres.session is not None:
+                return _show_remote(rres.session, args.json)
         _print_resolution_error(res, args.id)
         return 1
 
@@ -550,7 +793,42 @@ def build_parser() -> argparse.ArgumentParser:
                     help="include each agent's last message (reads transcripts)")
     ls.add_argument("--pr", action="store_true",
                     help="include each agent's PR + live status (recorded, else branch-derived; needs gh)")
+    ls.add_argument("--no-remote", action="store_true",
+                    help="local panes only: omit remote (cloud) sessions "
+                         "(`claude --environment …`), which are otherwise "
+                         "listed after the panes / as kind=remote in --json")
     ls.set_defaults(func=cmd_ls)
+
+    rem = sub.add_parser(
+        "remote",
+        help="remote (cloud) sessions started with `claude --environment` "
+             "(list | open | forget | record | watch | show)",
+    )
+    rem.add_argument("action", nargs="?", choices=["list", "open", "forget", "record", "watch", "show"],
+                     default="list",
+                     help="record: pass stdin through and register the cloud session it "
+                          "contains (pipe `claude -p … --environment … --output-format "
+                          "json` into it)")
+    rem.add_argument("id", nargs="?",
+                     help="session id (or unique part), URL, or launching pane; "
+                          "`open` defaults to the newest")
+    rem.add_argument("--json", action="store_true")
+    rem.add_argument("--pane", help="record: launching tmux pane id (default: $TMUX_PANE)")
+    rem.add_argument("--prompt", help="record: the prompt that was sent (shown as the summary)")
+    rem.add_argument("--environment", help="record: ccpool_… id if the output lacks pool_id")
+    rem.add_argument("--watch", action="store_true",
+                     help="record: also start a detached `remote watch` for each new session "
+                          "(emits remote-finished / -failed / -needs-input events)")
+    rem.add_argument("--last", action="store_true",
+                     help="show: the session's last assistant message (read-only GET, redacted)")
+    rem.add_argument("--tail", type=int, default=0, metavar="N",
+                     help="show: the session's last N events, one redacted line each")
+    rem.add_argument("--max", type=int, default=4000, help="show --last: max chars (default 4000)")
+    rem.add_argument("--once", action="store_true", help="watch: one pass, then exit")
+    rem.add_argument("--interval", type=float, default=30.0, help="watch: poll seconds (default: 30)")
+    rem.add_argument("--timeout", type=float, default=21600.0,
+                     help="watch: give up after this many seconds (default: 21600 = 6h)")
+    rem.set_defaults(func=cmd_remote)
 
     show = sub.add_parser("show", help="status + last message for one agent")
     show.add_argument("id", help="agent id: location (stocks:3.1) or pane id (%%42)")
