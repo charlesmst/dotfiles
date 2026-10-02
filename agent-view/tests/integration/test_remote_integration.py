@@ -8,12 +8,13 @@ and then sits at a shell prompt, exactly like the delegator pane whose
 import json
 import os
 import shutil
+import threading
 
 import pytest
 
 from agent_view import cloudstatus, remote, state, tmux
 from agent_view.cli import main
-from agent_view.tui.app import AgentTile, AgentViewApp, ConfirmScreen
+from agent_view.tui.app import AgentTile, AgentViewApp, ConfirmScreen, RemoteReady
 
 pytestmark = pytest.mark.integration
 
@@ -351,7 +352,7 @@ async def test_a_refresh_already_in_flight_cannot_put_a_removed_tile_back(remote
         await _remote_settled(pilot, app)
         stale = list(app.remotes)  # what a worker started before the removal would deliver
         state.dismiss_remote(SID)
-        await app.on_remote_ready(type("M", (), {"remotes": stale})())
+        await app.on_remote_ready(RemoteReady(stale))
         assert app.remotes == [] and _remote_ids(app) == []
 
 
@@ -400,3 +401,104 @@ async def test_removing_keeps_the_selection_in_place(remote_tile, tmux_server):
         await pilot.pause(0.5)
         assert app.current is not None and not getattr(app.current, "is_remote", False)
         assert app.selected == min(before, len(app.filtered_agents) - 1)
+
+
+# --- lazy loading: remotes must never get in front of the local overview ----------------------
+
+
+@pytest.fixture
+def hung_claude_ai(monkeypatch):
+    """Every remote pass blocks (as if claude.ai never answered) until the test lets it go."""
+    gate, entered = threading.Event(), []
+    real = remote.Loader.run
+
+    def stuck(self, agents, panes, publish):
+        entered.append(1)
+        with self._lock:  # a pass in progress: ready() stays False like a real slow one
+            gate.wait(20)
+        return real(self, agents, panes, publish)
+
+    monkeypatch.setattr(remote.Loader, "run", stuck)
+    yield gate
+    gate.set()
+
+
+async def test_local_and_cached_remote_tiles_render_while_the_remote_pass_hangs(
+    remote_tile, tmux_server, hung_claude_ai
+):
+    tmux_server.start_agent_session("alpha", "claude")
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _settle(pilot, app, min_tiles=2)  # the local agent AND the remote tile, with the pass stuck
+        assert sorted(a.kind.value for a in app.filtered_agents) == ["claude", "remote"]
+        bar = str(app.query_one("#statusbar").render())
+        assert "☁ 1 remote" in bar and "loading…" in bar  # placeholder until the first pass settles
+        tile = next(t for t in app.query(AgentTile) if getattr(t.agent, "is_remote", False))
+        assert "Read-only check" in "\n".join(line.plain for line in tile._lines)  # the cached record, not a blank
+
+        await pilot.press(*"alp")  # the UI is live: a keypress is handled while the pass is stuck
+        assert [a.kind.value for a in app.filtered_agents] == ["claude"]
+        await pilot.press("backspace", "backspace", "backspace")
+
+        hung_claude_ai.set()
+        await _remote_settled(pilot, app)
+        assert "loading…" not in str(app.query_one("#statusbar").render())
+        assert remote.peek_of(SID)  # …and the live peek filled in afterwards
+
+
+async def test_remote_passes_are_spaced_out_not_run_every_tick(remote_tile, monkeypatch):
+    monkeypatch.setattr(remote, "TICK_SECONDS", 60.0)
+    runs = []
+    real = remote.Loader.run
+    monkeypatch.setattr(remote.Loader, "run", lambda self, *a: runs.append(1) or real(self, *a))
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        await _cycles(pilot, app, n=3)  # three more 1s local refreshes
+        assert app.snapshots_applied >= 4
+        assert len(runs) == 1
+
+
+async def test_keypresses_and_redraws_do_no_remote_work(remote_tile, tmux_server, monkeypatch):
+    tmux_server.start_agent_session("alpha", "claude")
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        app._refresh_timer.stop()  # only the user acts from here on
+        await pilot.pause(1.5)  # let a refresh that was already in flight finish
+
+        import subprocess
+
+        calls = []
+
+        def counted(owner, name):
+            real = getattr(owner, name)
+            monkeypatch.setattr(owner, name, lambda *a, **k: calls.append(name) or real(*a, **k))
+
+        for owner, name in [
+            (remote, "discover"), (remote, "scan_panes"), (remote, "refresh_status"), (remote, "refresh_peeks"),
+            (remote.Loader, "run"), (cloudstatus, "_get"), (cloudstatus, "_token"), (state, "load_remote"),
+            (state, "update_remote_status"), (tmux, "list_panes"), (tmux, "capture_scrollback"),
+            (subprocess, "Popen"),
+        ]:
+            counted(owner, name)
+        for keys in (["down"], ["up"], ["right"], ["left"], list("alp"), ["backspace"] * 3, ["tab"]):
+            await pilot.press(*keys)
+        await pilot.resize_terminal(110, 35)  # a full redraw
+        await pilot.resize_terminal(150, 45)
+        await pilot.pause(0.5)
+        assert calls == []
+
+
+async def test_each_refresh_lists_tmux_once_and_shares_it_with_the_remote_tiles(remote_tile, monkeypatch):
+    listings = []
+    real = tmux.list_panes
+    monkeypatch.setattr(tmux, "list_panes", lambda: listings.append(1) or real())
+    app = AgentViewApp()
+    async with app.run_test(size=(150, 45)) as pilot:
+        await _remote_settled(pilot, app)
+        before_listings, before_snapshots = len(listings), app.snapshots_applied
+        await _cycles(pilot, app, n=3)
+        cycles = app.snapshots_applied - before_snapshots
+        assert cycles >= 3
+        assert len(listings) - before_listings <= cycles + 1  # one per refresh (+1 may be in flight)

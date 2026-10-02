@@ -215,6 +215,15 @@ state colours like local agents, and a live peek at its latest assistant text an
 `☁ N remote` count, and `tmux/agent-attention/status.sh` adds `⇢ N` to the tmux
 status line. Each new session appends a `remote-created` line to `agent-events.log`.
 
+**Remotes load lazily.** The overview draws the local panes first; remote tiles come straight from
+the records on disk (the cache) with a `loading…` hint on the status bar, and one background pass then
+looks for new launches (scrollback scan, at most every 5 s), polls status (~15 s per session) and fetches
+the peeks (~12 s), publishing each as it lands. Passes are spaced `AGENT_VIEW_REMOTE_TICK` seconds apart
+(default 3), never overlap, share the refresh's single `tmux list-panes`, and back off on errors, so an
+unreachable claude.ai only delays the ☁ tiles. Keypresses and redraws run no remote work, the keychain
+token is read once per process, and `status.sh` only reads the cached files (no network, no Python).
+`AGENT_VIEW_NO_STATUS=1` turns the lookups off entirely.
+
 **Removing a remote tile.** Press `ctrl-x` on a ☁ tile (or `agent-view remote forget <id>`) and
 confirm with `y`. That only edits agent-view's own record (`~/.local/state/agent-attention/remote/<id>`,
 one small JSON file per session): the cloud session is not stopped, deleted or touched, and nothing

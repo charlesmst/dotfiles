@@ -96,9 +96,14 @@ def find_agent(
     return None
 
 
-def discover() -> list[AgentPane]:
-    """All agent panes, sorted pending → working → idle → stale."""
-    panes = tmux.list_panes()
+def discover(panes: list[dict] | None = None) -> list[AgentPane]:
+    """All agent panes, sorted pending → working → idle → stale.
+
+    ``panes`` lets a caller that already listed them (the TUI shares one listing with the
+    remote tiles) skip a second ``tmux list-panes``.
+    """
+    if panes is None:
+        panes = tmux.list_panes()
     children, agents = process_snapshot()
     markers = state.load_pending()
     prs = state.load_prs()

@@ -42,6 +42,7 @@ attach is disabled for the account), so it is always ``unknown`` — open the UR
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -665,6 +666,84 @@ def refresh_peeks(sessions: list[RemoteSession], force: bool = False) -> bool:
     finally:
         _peek_lock.release()
     return changed
+
+
+# --- background loader (what the TUI runs for remotes) ---------------------------------
+# Remote awareness is the slow, optional half of the overview, so it is lazy: the local panes are
+# drawn first, tiles come from the records already on disk (the cache), and one throttled pass in a
+# worker thread then looks for new launches, polls status and fetches the live peeks, publishing
+# what it has as each stage finishes. Nothing here runs per keypress or per redraw.
+
+TICK_SECONDS = float(os.environ.get("AGENT_VIEW_REMOTE_TICK", "3"))  # gap between passes
+SCAN_SECONDS = 5.0  # scrollback scan for new launches (the captures are the costly part)
+PRUNE_SECONDS = 60.0
+
+
+class Loader:
+    """One lazy, never-stacking background pass over the remote sessions.
+
+    ``ready()`` is an O(1) check the UI can make every tick; ``run()`` is the pass, meant for a
+    worker thread. Status and peek lookups keep their own per-session due times and backoff
+    (``refresh_status`` / ``refresh_peeks``), so a pass that finds nothing due costs a few file
+    reads and no network.
+    """
+
+    def __init__(self, tick: float | None = None, clock=time.time) -> None:
+        self.tick = TICK_SECONDS if tick is None else tick
+        self._clock = clock
+        self._lock = threading.Lock()  # held for the length of a pass
+        self._next = 0.0
+        self._last_scan = float("-inf")
+        self._last_prune = float("-inf")
+        self.passes = 0  # completed passes; 0 means the first load hasn't settled yet
+
+    @property
+    def settled(self) -> bool:
+        return self.passes > 0
+
+    def ready(self) -> bool:
+        return not self._lock.locked() and self._clock() >= self._next
+
+    def run(self, agents: list[AgentPane], panes: list[dict], publish) -> bool:
+        """Do one pass. ``publish(sessions, settled)`` gets a snapshot after each stage that may
+        have changed what is shown; the last call of a pass has ``settled=True``. Returns False
+        (doing nothing) if a pass is already running."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        if not self._lock.acquire(blocking=False):
+            return False
+        sessions: list[RemoteSession] = []
+        snap = lambda: [copy.copy(x) for x in sessions]  # noqa: E731 - later stages mutate `sessions`
+        try:
+            now = self._clock()
+            if now - self._last_scan >= SCAN_SECONDS:
+                self._last_scan = now
+                found = scan_panes(panes, {a.pane_id for a in agents})
+                if now - self._last_prune >= PRUNE_SECONDS:
+                    self._last_prune = now
+                    state.prune_remote(KEEP_SECONDS)
+                if found:
+                    sessions = discover(agents, panes=panes, scan=False)
+                    publish(snap(), False)
+            sessions = discover(agents, panes=panes, scan=False)
+            if sessions:
+                # status and peeks are independent lookups: run them side by side so the (more
+                # visible) tile bodies never wait behind a slow status GET, and publish each as it lands
+                with ThreadPoolExecutor(max_workers=2) as ex:
+                    jobs = [ex.submit(refresh_peeks, sessions), ex.submit(refresh_status, sessions)]
+                    for _ in as_completed(jobs):
+                        publish(snap(), False)
+        except Exception:
+            pass  # remote awareness must never break the overview
+        finally:
+            self.passes += 1
+            self._next = self._clock() + self.tick
+            self._lock.release()
+            try:
+                publish(snap(), True)
+            except Exception:
+                pass
+        return True
 
 
 # --- a remote session as a normal agent tile -----------------------------------------

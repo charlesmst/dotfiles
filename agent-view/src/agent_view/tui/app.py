@@ -25,6 +25,7 @@ import time
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, VerticalScroll
+from textual.css.query import NoMatches
 from textual.events import Click, Key
 from textual.message import Message
 from textual.screen import ModalScreen
@@ -254,11 +255,13 @@ class SnapshotReady(Message):
         agents: list[AgentPane],
         previews: dict[str, str],
         remotes: list | None = None,
+        panes: list[dict] | None = None,
     ) -> None:
         super().__init__()
         self.agents = agents
         self.previews = previews
-        self.remotes = remotes or []  # remote (cloud) sessions, see remote.py
+        self.remotes = remotes or []  # remote (cloud) sessions, from the records on disk (cache)
+        self.panes = panes or []  # the tmux listing this snapshot used (the remote pass reuses it)
 
 
 class PrStatusReady(Message):
@@ -275,11 +278,12 @@ class PrStatusReady(Message):
 
 
 class RemoteReady(Message):
-    """Posted by the remote worker after a scrollback scan (off the first frame)."""
+    """Posted by the remote loader as each stage of a pass lands (always off the first frame)."""
 
-    def __init__(self, remotes: list) -> None:
+    def __init__(self, remotes: list, settled: bool = False) -> None:
         super().__init__()
         self.remotes = remotes
+        self.settled = settled  # the pass is over (the first one ends the "loading" hint)
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -378,6 +382,9 @@ class AgentViewApp(App[None]):
         self.snapshots_applied = 0  # refresh cycles completed (tests wait on it)
         self._remote_agents: list[remote.RemoteAgent] = []  # cloud sessions as tiles
         self._rendered_remote_key: tuple | None = None  # remote state at the last redraw
+        self._remote_loader = remote.Loader()  # lazy, throttled scan + status + peeks
+        self._panes: list[dict] = []  # last tmux listing (shared with the remote pass)
+        self._remote_settled = False  # the first remote pass has finished
 
     def compose(self) -> ComposeResult:
         yield Grid(id="grid")
@@ -393,7 +400,7 @@ class AgentViewApp(App[None]):
         self.query_one("#grid", Grid).display = self.view_mode == "grid"
         self.query_one("#list-view", Horizontal).display = self.view_mode == "list"
         self.refresh_data()
-        self.set_interval(1.0, self.refresh_data)
+        self._refresh_timer = self.set_interval(1.0, self.refresh_data)
 
     # -- data ----------------------------------------------------------
 
@@ -403,7 +410,8 @@ class AgentViewApp(App[None]):
         )
 
     def _refresh_worker(self) -> None:
-        agents = discovery.discover()
+        panes = tmux.list_panes()  # one listing for the local agents and the remote tiles
+        agents = discovery.discover(panes)
         deep = self.view_mode == "list"
         lines = LIST_CAPTURE_LINES if deep else GRID_CAPTURE_LINES
         previews = {
@@ -414,11 +422,14 @@ class AgentViewApp(App[None]):
         # was opened to show, and they're all local (tmux + one ps). PR status
         # is a network round-trip (~1.5s cold per PR) and would otherwise block
         # the first frame, so it's fetched in a separate worker below.
-        self.post_message(SnapshotReady(agents, previews, remote.discover(agents, scan=False)))
+        # Remote tiles come from the records already on disk (a few small file reads); the lookups
+        # that need the network happen later, in the loader's worker.
+        self.post_message(SnapshotReady(agents, previews, remote.discover(agents, panes=panes, scan=False), panes))
 
     async def on_snapshot_ready(self, message: SnapshotReady) -> None:
         self.agents = message.agents
         self._previews = message.previews
+        self._panes = message.panes
         self.remotes = self._without_removed(message.remotes)
         self._remote_agents = remote.remote_agents(self.remotes)
         self._remote_previews()
@@ -430,19 +441,21 @@ class AgentViewApp(App[None]):
         self._refresh_remotes(message.agents)
 
     def _refresh_remotes(self, agents: list[AgentPane]) -> None:
-        """Scan scrollback, look up status, fetch peeks — all off the UI thread.
+        """Hand the loader a pass if one is due — a no-op check on most ticks.
 
-        The scan is a capture per shell pane (~0.4s cold on 20+ panes, memoised after), status
-        and peeks are read-only GETs throttled per session (~12s, with backoff on errors), so
-        this is cheap to call every second and must never sit in front of the first frame.
+        The pass (scrollback scan, status and peek GETs) runs in a thread and posts what it has as
+        each stage lands. The loader spaces passes out and never runs two at once, so a slow or
+        unreachable claude.ai only delays remote tiles, never the local ones or a keypress.
         """
-        def work() -> None:
-            sessions = remote.discover(agents, refresh=True)
-            tiles = remote.remote_agents(sessions)
-            remote.refresh_peeks([t.remote for t in tiles])
-            self.post_message(RemoteReady(sessions))
+        loader = self._remote_loader
+        if not loader.ready():
+            return
+        panes = self._panes
 
-        self.run_worker(work, thread=True, exclusive=True, group="remote")
+        def work() -> None:
+            loader.run(agents, panes, lambda sessions, settled: self.post_message(RemoteReady(sessions, settled)))
+
+        self.run_worker(work, thread=True, group="remote")
 
     def _remote_previews(self) -> None:
         deep = self.view_mode == "list"
@@ -458,10 +471,14 @@ class AgentViewApp(App[None]):
         return [s for s in sessions if not state.is_dismissed(s.session_id)]
 
     async def on_remote_ready(self, message: RemoteReady) -> None:
+        first_settle = message.settled and not self._remote_settled
+        self._remote_settled = self._remote_settled or message.settled
         self.remotes = self._without_removed(message.remotes)
         self._remote_agents = remote.remote_agents(self.remotes)
         self._remote_previews()
         if self._remote_key() == self._rendered_remote_key:
+            if first_settle:
+                self._update_statusbar()  # only the "loading" hint changed
             return  # what's on screen is already current — skip a redundant rebuild
         await self._rebuild_view()
 
@@ -544,8 +561,11 @@ class AgentViewApp(App[None]):
         # *active* screen, which is the ConfirmScreen while a kill dialog
         # is open — and the refresh interval keeps ticking behind it.
         base = self.screen_stack[0]
-        grid = base.query_one("#grid", Grid)
-        list_view = base.query_one("#list-view", Horizontal)
+        try:
+            grid = base.query_one("#grid", Grid)
+            list_view = base.query_one("#list-view", Horizontal)
+        except NoMatches:
+            return  # shutting down: a snapshot that was in flight has nothing left to draw on
         grid.display = self.view_mode == "grid"
         list_view.display = self.view_mode == "list"
 
@@ -664,6 +684,8 @@ class AgentViewApp(App[None]):
             counts += f" · [red]✖ {stale} stale[/]"
         if self._remote_agents:
             counts += f" · [magenta]☁ {len(self._remote_agents)} remote[/]"
+            if not self._remote_settled:
+                counts += " [dim]loading…[/]"  # cached records are shown; live status is on its way
         other = "list" if self.view_mode == "grid" else "grid"
         help_text = (
             "[dim]enter[/] jump/open  [dim]^o[/] PR/open  [dim]^d[/] kill agent  [dim]^k[/] kill session"

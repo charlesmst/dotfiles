@@ -46,3 +46,16 @@ def test_find_agent_none_when_tree_has_no_agent():
 def test_find_agent_survives_pid_cycles():
     children = {10: [20], 20: [10]}
     assert find_agent(10, children, {}) is None
+
+
+def test_discover_reuses_a_tmux_listing_it_is_given(monkeypatch):
+    """The TUI lists panes once per refresh and shares it with the remote tiles."""
+    from agent_view import discovery, tmux
+
+    monkeypatch.setattr(tmux, "list_panes", lambda: (_ for _ in ()).throw(AssertionError("listed again")))
+    monkeypatch.setattr(discovery, "process_snapshot", lambda: ({}, {}))
+    assert discovery.discover([]) == []
+    assert discovery.discover(panes=[{
+        "pane_id": "%1", "pane_pid": 1, "session": "s", "window_index": "0", "pane_index": "0",
+        "window_name": "w", "last_activity": 0, "command": "zsh",
+    }]) == []  # no agent in its process tree
