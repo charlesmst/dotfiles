@@ -58,6 +58,7 @@ def test_forgotten_and_expired_sessions_do_not_count(tmp_path):
 
 
 def test_finished_and_failed_sessions_drop_off_the_count(tmp_path):
+    _remote(tmp_path, "session_01G", status="gone")
     _remote(tmp_path, "session_01A", status="finished")
     _remote(tmp_path, "session_01B", status="failed")
     _remote(tmp_path, "session_01C", status="running")

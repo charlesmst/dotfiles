@@ -2,7 +2,7 @@
 # Output a tmux status-line indicator for agent panes needing attention.
 #   ● N  (yellow)  — panes with a pending notification
 #   ⇢ N  (magenta) — ACTIVE remote (cloud) sessions started with `claude --environment`
-#                    (unknown / running / idle / needs-input; finished and failed
+#                    (unknown / running / idle / needs-input; finished, failed and gone
 #                    sessions drop off, as do forgotten and >7-day-old records)
 # Embed via: #(~/personal/dotfiles/tmux/agent-attention/status.sh)
 BASE="${AGENT_ATTENTION_DIR:-$HOME/.local/state/agent-attention}"
@@ -10,7 +10,7 @@ BASE="${AGENT_ATTENTION_DIR:-$HOME/.local/state/agent-attention}"
 pending=$(find "$BASE/pending" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
 # Same retention as agent-view (AGENT_VIEW_REMOTE_DAYS, default 7); skip `remote forget` tombstones.
 remote=$(find "$BASE/remote" -maxdepth 1 -type f -name 'session_*' -mtime "-${AGENT_VIEW_REMOTE_DAYS:-7}" \
-    -exec grep -L -e '"dismissed": true' -e '"status": "finished"' -e '"status": "failed"' {} + 2>/dev/null \
+    -exec grep -L -e '"dismissed": true' -e '"status": "finished"' -e '"status": "failed"' -e '"status": "gone"' {} + 2>/dev/null \
     | wc -l | tr -d ' ')
 out=""
 if [ "$pending" != "0" ]; then

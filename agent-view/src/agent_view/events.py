@@ -49,7 +49,9 @@ def remote_created(ref: state.RemoteRef) -> dict:
     return {
         "stream": "remote",
         "kind": "remote",
-        "pane_id": ref.pane_id,
+        "pane_id": None,  # a cloud session has no pane; see the module doc for why this is not the launcher
+        "launch_pane_id": ref.pane_id,
+        "launch_location": ref.location,
         "location": ref.location,
         "agent": "claude",
         "event": "remote-created",
@@ -70,27 +72,31 @@ def remote_created(ref: state.RemoteRef) -> dict:
 
 # status → event name. Only these are announced: a terminal state or a request for
 # input. running/idle are visible state (overview, `ls`) but would only be noise here.
+# ``gone`` is a session claude.ai no longer knows (killed, deleted or expired on the server).
 STATUS_EVENTS = {
     "finished": "remote-finished",
     "failed": "remote-failed",
     "needs-input": "remote-needs-input",
+    "gone": "remote-gone",
 }
+IDLE_EXPIRED = "idle-expired"  # not a cloud status: a session that went quiet (see remote.idle_expired)
+IDLE_EXPIRED_EVENT = "remote-idle-expired"
 
 
-def remote_status(ref: state.RemoteRef, previous: str | None) -> dict | None:
-    """The event for a session that just changed to a notable status, else None."""
-    name = STATUS_EVENTS.get(ref.status or "")
-    if not name:
-        return None
+def _message(ref: state.RemoteRef, what: str) -> str:
+    return (f"{ref.title or ref.session_id}: {what}"
+            + (f" — {ref.status_detail}" if ref.status_detail else "")
+            + f" — {ref.url}"
+            # the session's own last words (redacted, ≤500 chars) so the orchestrator can
+            # react without opening the browser
+            + (f" — last message: {ref.last_message}" if ref.last_message else ""))
+
+
+def _attention(ref: state.RemoteRef, name: str, what: str, previous: str | None) -> dict:
     ev = remote_created(ref)
     ev.update({
         "event": name,
-        # the session's own last words (redacted, ≤500 chars) so the orchestrator can
-        # react without opening the browser
-        "message": f"{ref.title or ref.session_id}: {ref.status}"
-                   + (f" — {ref.status_detail}" if ref.status_detail else "")
-                   + f" — {ref.url}"
-                   + (f" — last message: {ref.last_message}" if ref.last_message else ""),
+        "message": _message(ref, what),
         "last_message": ref.last_message,
         "status": ref.status,
         "status_detail": ref.status_detail,
@@ -100,3 +106,18 @@ def remote_status(ref: state.RemoteRef, previous: str | None) -> dict | None:
         "ts": time.time(),
     })
     return ev
+
+
+def remote_status(ref: state.RemoteRef, previous: str | None) -> dict | None:
+    """The event for a session that is in a notable status, else None."""
+    name = STATUS_EVENTS.get(ref.status or "")
+    if not name:
+        return None
+    what = "no longer on claude.ai (killed, deleted or expired)" if ref.status == "gone" else ref.status
+    return _attention(ref, name, what, previous)
+
+
+def remote_idle_expired(ref: state.RemoteRef, quiet_hours: float) -> dict:
+    """``remote-idle-expired``: the session has shown no activity for ``quiet_hours`` and is still not done."""
+    return _attention(ref, IDLE_EXPIRED_EVENT, f"{ref.status}, no activity for {quiet_hours:.0f}h (idle-expired)",
+                      ref.status)

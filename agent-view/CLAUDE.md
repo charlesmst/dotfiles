@@ -139,8 +139,18 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
 - **Events**: each newly recorded session appends one `remote-created` JSONL line to
   `agent-events.log` (`events.py`) in the `fleet` shape + `stream/kind: remote`,
   `session_id`, `url`. It can't ride `events.sock`: `fleet-listen.py` (staff-support) drops
-  everything but `pending`/`pr`. `remote-finished` / `-failed` / `-needs-input` come from the status
-  lookup only — never invent one without it.
+  everything but `pending`/`pr`. `remote-finished` / `-failed` / `-needs-input` / `-gone` / `-idle-expired` come from the status
+  lookup only — never invent one without it. **Exactly once**: `remote.announce` claims the state
+  (`state.claim_notification`, `RemoteRef.notified`, under the record's flock — the same lock as
+  status writes and removal) *before* appending, and gives the claim back if the append fails; so the
+  monitor, the overview and `ls` can all poll. `refresh_status` also announces any notable state
+  not yet announced from cached data (a crash between recording and announcing loses nothing;
+  records older than `ANNOUNCE_MAX_AGE` are marked, not re-announced, except `needs-input`). `gone` =
+  two consecutive 404s on a session that had a status. **`pane_id` is null on these lines** (the launcher
+  is `launch_pane_id`): `event-filter.pl` job 5 drops `pane_id == $TMUX_PANE` and the orchestrator
+  launches from its own pane. **One poller, not one per session**: `remote.monitor` (`remote monitor`),
+  single instance via `remote-monitor.lock`, started by `register`/`Loader`/`record --watch`
+  through `ensure_monitor` (off under `AGENT_VIEW_NO_WATCH`/`NO_STATUS`, which keeps tests quiet).
 - **Overview surfaces**: remote sessions are **tiles** in the TUI (`remote.RemoteAgent`, an
   `AgentPane` look-alike: `kind=REMOTE`, `pane_id=r-<session_id>`, state mapped from the cloud
   status — needs-input→pending, running→working, failed/5h-quiet→stale, else idle), sorted and

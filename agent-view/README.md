@@ -208,12 +208,25 @@ for the `Created cloud session` block / the JSON result, and are kept for
 GET-only lookup of the cloud session with your existing login (`cloudstatus.py`; the token is
 never printed or logged); on any error it reads "unknown, open URL". `agent-view remote show
 <id> --last` prints the session's last message (redacted), `--tail N` its recent events, and
-`remote watch` emits `remote-finished` / `-failed` / `-needs-input` events (with a ≤500-char
-excerpt). In the live overview (`prefix + a`) a remote session is a normal tile with a `☁ REMOTE` badge,
+a background monitor appends the attention events (see **Cloud-session events** below). In the live overview (`prefix + a`) a remote session is a normal tile with a `☁ REMOTE` badge,
 state colours like local agents, and a live peek at its latest assistant text and tool activity
 (refreshed ~every 12 s, read-only); `enter`/`^o` opens its claude.ai page. The status bar adds a
 `☁ N remote` count, and `tmux/agent-attention/status.sh` adds `⇢ N` to the tmux
 status line. Each new session appends a `remote-created` line to `agent-events.log`.
+
+**Cloud-session events.** Every recorded session announces each attention state **once** in
+`~/.local/state/agent-attention/agent-events.log`, with no overview open: `remote-needs-input`,
+`remote-finished`, `remote-failed`, `remote-gone` (claude.ai no longer knows the session: killed,
+deleted or expired) and `remote-idle-expired` (running/idle but silent for `AGENT_VIEW_REMOTE_IDLE_HOURS`,
+default 6). Each line carries `session_id`, `url`, `title`, `repo`, `branch`, `status_detail` and the
+session's `last_message` (redacted, ≤500 chars). One shared poller does it, `agent-view remote monitor`:
+a lock file allows a single copy, `remote record` / the scan / the overview start it when none runs, and it
+exits after `AGENT_VIEW_MONITOR_IDLE_MINUTES` (15) with nothing left to watch (`remote monitor --status`,
+`--stop`, `--once`). It reads the same cached status and per-session backoff as the overview, so the two
+share polls. Whoever sees a state first claims it under the record's lock; a removed (`ctrl-x`) session
+emits nothing. Lines have `pane_id: null` — the launching pane is `launch_pane_id` — because the
+orchestrator's `event-filter.pl` drops any line whose `pane_id` is its own pane, and it launches its
+runner sessions from that pane.
 
 **Remotes load lazily.** The overview draws the local panes first; remote tiles come straight from
 the records on disk (the cache) with a `loading…` hint on the status bar, and one background pass then

@@ -110,6 +110,7 @@ def api(monkeypatch, tmp_path):
     monkeypatch.delenv("AGENT_VIEW_NO_STATUS", raising=False)
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", TOKEN)
     monkeypatch.setenv("AGENT_ATTENTION_DIR", str(tmp_path / "state"))
+    monkeypatch.setattr(remote, "IDLE_EXPIRE_SECONDS", 1e12)  # these fixtures are a day old; idle-expiry has its own tests
     a = Api()
     monkeypatch.setattr(cloudstatus, "BASE_URL", a.url)
     yield a

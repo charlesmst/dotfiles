@@ -55,7 +55,7 @@ TIMEOUT = 8.0
 SOURCE = "claude.ai cloud session (GET /v1/code/sessions)"
 
 ACTIVE = {"unknown", "running", "idle", "needs-input"}
-TERMINAL = {"finished", "failed"}
+TERMINAL = {"finished", "failed", "gone"}  # gone: claude.ai no longer knows the session
 
 
 @dataclass

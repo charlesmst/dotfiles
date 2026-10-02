@@ -7,7 +7,7 @@ Subcommands:
   status          tmux status-line fragment (pending count)
   install         wire hook configs into Claude / Cursor / Codex
   doctor          print discovery snapshot for debugging
-  remote          list/open/forget/record/watch/show remote (cloud) sessions (`claude --environment`)
+  remote          list/open/forget/record/watch/monitor/show remote (cloud) sessions (`claude --environment`)
 
 Hook entrypoints must stay fast and never fail the calling agent: they
 swallow their own errors and exit 0.
@@ -331,16 +331,8 @@ def _remote_record(args: argparse.Namespace) -> int:
         if not got and not remote.parse_created(data):
             print("agent-view: no cloud session found in input; nothing recorded",
                   file=sys.stderr)
-        if args.watch and not os.environ.get("AGENT_VIEW_NO_WATCH"):
-            import subprocess
-
-            for ref in got:  # one detached poller per session; it exits when the session ends
-                subprocess.Popen(
-                    [sys.executable, "-m", "agent_view.cli", "remote", "watch", ref.session_id,
-                     "--timeout", str(args.timeout)],
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    start_new_session=True,
-                )
+        if args.watch:
+            remote.ensure_monitor(force=True)  # (recording starts it anyway) one shared poller, never one per session
     except Exception:
         pass  # a registry failure must never break the launch
     return 0
@@ -431,12 +423,38 @@ def _remote_watch(args: argparse.Namespace) -> int:
         time.sleep(args.interval)
 
 
+def _remote_monitor(args: argparse.Namespace) -> int:
+    """The one background poller that announces attention states with no TUI open.
+
+    ``monitor`` runs it here (a second copy exits at once: a lock file allows one), ``--once``
+    does a single pass, ``--stop`` ends a running one, ``--status`` says whether one runs. It is
+    started automatically by ``remote record``, the scan and the overview, and exits after
+    ``AGENT_VIEW_MONITOR_IDLE_MINUTES`` (15) with nothing left to watch.
+    """
+    from . import remote
+
+    if args.stop:
+        print("monitor stopped" if remote.stop_monitor() else "monitor is not running")
+        return 0
+    if args.status_only:
+        pid = remote.monitor_pid()
+        print(f"monitor running (pid {pid})" if pid is not None else "monitor is not running")
+        return 0
+    if os.environ.get("AGENT_VIEW_NO_STATUS"):
+        print("agent-view: AGENT_VIEW_NO_STATUS is set; the monitor has nothing to look up", file=sys.stderr)
+        return 0
+    return remote.monitor(interval=args.interval if args.interval != 30.0 else None, once=args.once,
+                          scan=not args.no_scan)
+
+
 def cmd_remote(args: argparse.Namespace) -> int:
     """List / open / forget / record remote (cloud) sessions started with `--environment`."""
     if args.action == "record":
         return _remote_record(args)
     if args.action == "watch":
         return _remote_watch(args)
+    if args.action == "monitor":
+        return _remote_monitor(args)
     if args.action == "show":
         return _remote_show(args)
 
@@ -802,9 +820,9 @@ def build_parser() -> argparse.ArgumentParser:
     rem = sub.add_parser(
         "remote",
         help="remote (cloud) sessions started with `claude --environment` "
-             "(list | open | forget | record | watch | show)",
+             "(list | open | forget | record | watch | monitor | show)",
     )
-    rem.add_argument("action", nargs="?", choices=["list", "open", "forget", "record", "watch", "show"],
+    rem.add_argument("action", nargs="?", choices=["list", "open", "forget", "record", "watch", "monitor", "show"],
                      default="list",
                      help="record: pass stdin through and register the cloud session it "
                           "contains (pipe `claude -p … --environment … --output-format "
@@ -817,15 +835,20 @@ def build_parser() -> argparse.ArgumentParser:
     rem.add_argument("--prompt", help="record: the prompt that was sent (shown as the summary)")
     rem.add_argument("--environment", help="record: ccpool_… id if the output lacks pool_id")
     rem.add_argument("--watch", action="store_true",
-                     help="record: also start a detached `remote watch` for each new session "
-                          "(emits remote-finished / -failed / -needs-input events)")
+                     help="record: make sure the shared background monitor is running (it always is "
+                          "after a record; there is no per-session watcher any more)")
+    rem.add_argument("--stop", action="store_true", help="monitor: stop the running monitor")
+    rem.add_argument("--no-scan", action="store_true",
+                     help="monitor: don't look for unrecorded launches in shell panes' scrollback")
+    rem.add_argument("--status", dest="status_only", action="store_true",
+                     help="monitor: say whether the monitor is running")
     rem.add_argument("--last", action="store_true",
                      help="show: the session's last assistant message (read-only GET, redacted)")
     rem.add_argument("--tail", type=int, default=0, metavar="N",
                      help="show: the session's last N events, one redacted line each")
     rem.add_argument("--max", type=int, default=4000, help="show --last: max chars (default 4000)")
     rem.add_argument("--once", action="store_true", help="watch: one pass, then exit")
-    rem.add_argument("--interval", type=float, default=30.0, help="watch: poll seconds (default: 30)")
+    rem.add_argument("--interval", type=float, default=30.0, help="watch: poll seconds (default: 30); monitor: pass interval (default: 15)")
     rem.add_argument("--timeout", type=float, default=21600.0,
                      help="watch: give up after this many seconds (default: 21600 = 6h)")
     rem.set_defaults(func=cmd_remote)

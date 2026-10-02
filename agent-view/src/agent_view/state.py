@@ -271,7 +271,7 @@ class RemoteRef:
     # TOMBSTONE_SECONDS. Never touches the cloud session itself.
     dismissed: bool = False
     # Last observed cloud status (see cloudstatus.py). None = never observed → "unknown".
-    status: str | None = None  # running | idle | needs-input | finished | failed
+    status: str | None = None  # running | idle | needs-input | finished | failed | gone
     status_detail: str | None = None
     status_checked_at: float = 0.0
     status_changed_at: float = 0.0
@@ -279,6 +279,10 @@ class RemoteRef:
     last_event_at: str | None = None
     last_message: str | None = None  # redacted ≤500-char excerpt of the last assistant message
     pool_name: str | None = None  # the self-hosted runner pool's name ("main"), when reported
+    # The attention state last announced in agent-events.log (finished | failed | needs-input |
+    # gone | idle-expired), claimed under the record's lock before the line is written, so any
+    # number of pollers (monitor, TUI, `ls`) announce a state once. Reset when the status moves.
+    notified: str | None = None
 
 
 def valid_remote_id(session_id: str) -> bool:
@@ -419,12 +423,54 @@ def update_remote_status(
             ref.pool_name = pool_name or ref.pool_name
             if changed:
                 ref.status_changed_at = now
+                if ref.notified != "idle-expired":  # that one resets on new activity, not on a status flip
+                    ref.notified = None  # a new state: it may be announced (again) when it is notable
+            if last_event_at and last_event_at != data.get("last_event_at") and ref.notified == "idle-expired":
+                ref.notified = None  # it woke up since: a later quiet spell is a new event
             f.seek(0)
             f.truncate()
             f.write(json.dumps(ref.__dict__))
             return prev, changed, ref
     except (OSError, json.JSONDecodeError, TypeError):
         return None, False, None
+
+
+def claim_notification(session_id: str, kind: str) -> RemoteRef | None:
+    """Atomically mark ``kind`` as announced → the record, or None if it already was (or is removed).
+
+    Taken under the same exclusive lock as ``update_remote_status``/``dismiss_remote``, so of any
+    number of processes that notice a state at once exactly one gets the record back and writes
+    the event; a removed (tombstoned) session is never claimed.
+    """
+    return _set_notified(session_id, kind, expect=lambda cur: cur != kind)
+
+
+def release_notification(session_id: str, kind: str) -> None:
+    """Undo a claim whose event could not be written, so the next poll tries again."""
+    _set_notified(session_id, None, expect=lambda cur: cur == kind)
+
+
+def _set_notified(session_id: str, kind: str | None, expect) -> RemoteRef | None:
+    import fcntl
+
+    if not valid_remote_id(session_id):
+        return None
+    try:
+        with open(os.path.join(remote_dir(), session_id), "r+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            data = json.loads(f.read() or "{}")
+            if not isinstance(data, dict) or not data.get("url") or data.get("dismissed"):
+                return None
+            if not expect(data.get("notified")):
+                return None
+            data["notified"] = kind
+            f.seek(0)
+            f.truncate()
+            f.write(json.dumps(data))
+            fields = RemoteRef.__dataclass_fields__
+            return RemoteRef(**{k: v for k, v in data.items() if k in fields} | {"session_id": session_id})
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
 
 
 def count_remote(max_age_seconds: float | None = None) -> int:
@@ -437,7 +483,7 @@ def count_remote(max_age_seconds: float | None = None) -> int:
     cutoff = time.time() - max_age_seconds
     return sum(
         1 for r in load_remote().values()
-        if not r.dismissed and r.status not in ("finished", "failed")
+        if not r.dismissed and r.status not in ("finished", "failed", "gone")
         and (r.recorded_at or r.created_at) >= cutoff
     )
 

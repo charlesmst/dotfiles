@@ -47,6 +47,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -287,6 +288,7 @@ def register(ref: state.RemoteRef, revive: bool = False) -> bool:
     if not state.record_remote(ref, revive=revive):
         return False
     events.emit(events.remote_created(ref))
+    ensure_monitor()  # a new session is worth watching even if no TUI is ever opened
     return True
 
 
@@ -446,6 +448,7 @@ class RemoteSession:
 ACTIVE_FRESH_SECONDS = 300.0
 POLL_ACTIVE_SECONDS = 15.0
 POLL_TERMINAL_SECONDS = 600.0
+POLL_PARKED_SECONDS = 60.0  # waiting for input: it only moves when someone answers
 MAX_POLLED = 12  # newest sessions only; never fan out unboundedly
 
 
@@ -474,7 +477,9 @@ def status_of(session: RemoteSession) -> tuple[str, str]:
 
 def _due(ref: state.RemoteRef, now: float) -> bool:
     age = now - (ref.status_checked_at or 0)
-    return age >= (POLL_TERMINAL_SECONDS if ref.status in cloudstatus.TERMINAL else POLL_ACTIVE_SECONDS)
+    if ref.status in cloudstatus.TERMINAL:
+        return age >= POLL_TERMINAL_SECONDS
+    return age >= (POLL_PARKED_SECONDS if ref.status == "needs-input" else POLL_ACTIVE_SECONDS)
 
 
 _refresh_lock = threading.Lock()  # the TUI ticks every second; never stack lookups
@@ -488,11 +493,59 @@ def _backoff_delay(fails: int, base: float) -> float:
     return min(BACKOFF_MAX_SECONDS, base * (2 ** max(0, fails - 1)))
 
 
-def refresh_status(sessions: list[RemoteSession], force: bool = False) -> list[dict]:
-    """Look up due sessions (read-only GETs, in parallel) and announce transitions.
+GONE_CONFIRMATIONS = 2  # consecutive 404s before a session counts as gone (one stray 404 isn't a kill)
+_gone_seen: dict[str, int] = {}
+IDLE_EXPIRE_SECONDS = float(os.environ.get("AGENT_VIEW_REMOTE_IDLE_HOURS", "6")) * 3600
 
-    Persists each observed status under a lock; the process that sees a change into
-    ``finished`` / ``failed`` / ``needs-input`` appends the matching event to the log.
+
+def idle_expired(ref: state.RemoteRef, now: float) -> bool:
+    """A session that stopped moving: running/idle, last cloud activity older than the limit."""
+    if ref.dismissed or ref.status not in ("running", "idle") or ref.notified == events.IDLE_EXPIRED:
+        return False
+    last = _epoch(ref.last_event_at) or ref.status_changed_at or ref.created_at
+    return bool(last) and now - last > IDLE_EXPIRE_SECONDS
+
+
+def announce(ref: state.RemoteRef, kind: str, build) -> dict | None:
+    """Write the event for ``kind`` exactly once → the event, or None if already announced/removed.
+
+    The claim is taken under the record's lock *before* the append, so concurrent pollers can't
+    both write it; if the append fails the claim is given back and the next poll retries.
+    """
+    claimed = state.claim_notification(ref.session_id, kind)
+    if claimed is None:
+        return None
+    ev = build(claimed)
+    if events.emit(ev):
+        return ev
+    state.release_notification(ref.session_id, kind)
+    return None
+
+
+ANNOUNCE_MAX_AGE = 86400.0  # a finished/failed/gone state older than this is history, not news
+
+
+def _announce_status(ref: state.RemoteRef, prev: str | None, changed: bool) -> dict | None:
+    kind = ref.status or ""
+    if kind not in events.STATUS_EVENTS or ref.notified == kind:
+        return None
+    if (not changed and kind != "needs-input"
+            and time.time() - (ref.status_changed_at or 0) > ANNOUNCE_MAX_AGE):
+        # e.g. a record from before announcements were tracked, long since finished: mark it
+        # done without writing a stale event. (A session still waiting for input is always
+        # announced: that one is actionable however long ago it stopped.)
+        state.claim_notification(ref.session_id, kind)
+        return None
+    return announce(ref, kind, lambda r: events.remote_status(r, prev))
+
+
+def refresh_status(sessions: list[RemoteSession], force: bool = False) -> list[dict]:
+    """Look up due sessions (read-only GETs, in parallel) and announce notable states.
+
+    Persists each observed status under a lock. Whichever process sees a session in
+    ``finished`` / ``failed`` / ``needs-input`` / ``gone`` (or gone quiet: ``idle-expired``) that
+    has not been announced yet claims it and appends the one event to the log — not just on the
+    poll where it changed, so a state seen by a process that crashed before writing is not lost.
     A failed lookup records nothing (the session just reads unknown this run).
     Returns the events emitted. Never raises.
     """
@@ -505,6 +558,15 @@ def refresh_status(sessions: list[RemoteSession], force: bool = False) -> list[d
         return emitted  # a lookup is already in flight in this process
     try:
         now = time.time()
+        for s in sessions:  # cached state only: no network
+            ev = _announce_status(s.ref, None, changed=False)  # a notable state nobody has announced yet
+            if ev:
+                emitted.append(ev)
+            if idle_expired(s.ref, now):
+                ev = announce(s.ref, events.IDLE_EXPIRED,
+                              lambda r: events.remote_idle_expired(r, IDLE_EXPIRE_SECONDS / 3600))
+                if ev:
+                    emitted.append(ev)
         todo = [
             s for s in sessions[:MAX_POLLED]
             if force or (_due(s.ref, now) and _status_backoff.get(s.session_id, (0, 0.0))[1] <= now)
@@ -518,12 +580,21 @@ def refresh_status(sessions: list[RemoteSession], force: bool = False) -> list[d
             if not res.known:
                 fails = _status_backoff.get(s.session_id, (0, 0.0))[0] + 1
                 _status_backoff[s.session_id] = (fails, now + _backoff_delay(fails, POLL_ACTIVE_SECONDS))
-                continue
+                if res.reason == "session not found" and s.ref.status and s.ref.status != "gone":
+                    _gone_seen[s.session_id] = _gone_seen.get(s.session_id, 0) + 1
+                    if _gone_seen[s.session_id] >= GONE_CONFIRMATIONS:
+                        res = cloudstatus.CloudStatus(
+                            state="gone", detail="claude.ai no longer has this session", checked_at=now)
+                if not res.known:
+                    continue
+            _gone_seen.pop(s.session_id, None)
             _status_backoff.pop(s.session_id, None)
             excerpt = None
-            if res.state in events.STATUS_EVENTS and (s.ref.status != res.state or not s.ref.last_message):
+            if res.state in events.STATUS_EVENTS and res.state != "gone" and (
+                s.ref.status != res.state or not s.ref.last_message
+            ):
                 # announcing (or backfilling a notable state with no excerpt yet): fetch the
-                # session's last words — one more read-only GET; no event unless status changed
+                # session's last words — one more read-only GET
                 lm = cloudstatus.fetch_last_message(s.session_id)
                 excerpt = lm.excerpt() if lm.ok else None
             prev, changed, ref = state.update_remote_status(
@@ -533,8 +604,8 @@ def refresh_status(sessions: list[RemoteSession], force: bool = False) -> list[d
             if ref is None:
                 continue
             s.ref = ref
-            ev = events.remote_status(ref, prev) if changed else None
-            if ev and events.emit(ev):
+            ev = _announce_status(ref, prev, changed)
+            if ev:
                 emitted.append(ev)
     except Exception:
         pass
@@ -668,6 +739,143 @@ def refresh_peeks(sessions: list[RemoteSession], force: bool = False) -> bool:
     return changed
 
 
+# --- the monitor: one background poller for every recorded session --------------------------
+# Events must not depend on a TUI being open (or on a per-session `--watch`): a single detached
+# process, guarded by a lock file so there is never more than one, polls every session that is
+# still going through the same due-time/backoff logic as the overview (so it reads what the TUI
+# just cached instead of asking again), announces each attention state once, and exits after a
+# quiet spell. It is (re)started by `remote record`, by the scan finding a new session, and by
+# the overview opening on an active session.
+
+MONITOR_LOCK = "remote-monitor.lock"
+MONITOR_INTERVAL = float(os.environ.get("AGENT_VIEW_MONITOR_INTERVAL", "15"))
+MONITOR_SCAN_SECONDS = 60.0
+MONITOR_IDLE_EXIT_SECONDS = float(os.environ.get("AGENT_VIEW_MONITOR_IDLE_MINUTES", "15")) * 60
+
+
+def _monitor_lock_path() -> str:
+    return os.path.join(state.base_dir(), MONITOR_LOCK)
+
+
+def monitor_pid() -> int | None:
+    """pid of the running monitor (-1 if unreadable), else None. The held lock is the truth."""
+    import fcntl
+
+    try:
+        fd = os.open(_monitor_lock_path(), os.O_RDWR)
+    except OSError:
+        return None
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            try:
+                return int(os.pread(fd, 32, 0).decode().strip() or -1)
+            except (OSError, ValueError):
+                return -1
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return None
+    finally:
+        os.close(fd)
+
+
+_monitor_checked = 0.0
+
+
+def ensure_monitor(force: bool = False) -> bool:
+    """Start the monitor unless one is running → True if one was started. Never raises.
+
+    Cheap to call often (checked at most once a minute per process). A no-op under the opt-outs
+    (``AGENT_VIEW_NO_STATUS`` / ``AGENT_VIEW_NO_WATCH``), which is how the tests stay quiet.
+    """
+    global _monitor_checked
+    if os.environ.get("AGENT_VIEW_NO_WATCH") or os.environ.get("AGENT_VIEW_NO_STATUS"):
+        return False
+    now = time.time()
+    if not force and now - _monitor_checked < 60:
+        return False
+    _monitor_checked = now
+    try:
+        if monitor_pid() is not None:
+            return False
+        subprocess.Popen(
+            [sys.executable, "-m", "agent_view.cli", "remote", "monitor"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def stop_monitor() -> bool:
+    """SIGTERM the running monitor → True if there was one."""
+    import signal
+
+    pid = monitor_pid()
+    if not pid or pid < 0:
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)
+        return True
+    except OSError:
+        return False
+
+
+def _worth_watching(s: RemoteSession, now: float) -> bool:
+    """Still going, or finished recently enough that a resume (or an unsent event) matters."""
+    st = s.ref.status
+    return st not in cloudstatus.TERMINAL or now - (s.ref.status_changed_at or 0) < TILE_HOURS * 3600
+
+
+def monitor(interval: float | None = None, idle_exit: float | None = None, once: bool = False,
+            scan: bool = True, clock=time.time, sleep=time.sleep) -> int:
+    """Run the monitor in this process: 0 on a normal exit or if another one already runs."""
+    import fcntl
+
+    interval = MONITOR_INTERVAL if interval is None else interval
+    idle_exit = MONITOR_IDLE_EXIT_SECONDS if idle_exit is None else idle_exit
+    os.makedirs(state.base_dir(), exist_ok=True)
+    fd = os.open(_monitor_lock_path(), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return 0  # one is already running: never a second
+        os.ftruncate(fd, 0)
+        os.pwrite(fd, str(os.getpid()).encode(), 0)
+        last_busy, last_scan = clock(), float("-inf")
+        while True:
+            now = clock()
+            try:
+                if scan and now - last_scan >= MONITOR_SCAN_SECONDS:  # sessions launched but never recorded
+                    last_scan = now
+                    from . import discovery
+
+                    panes = tmux.list_panes()
+                    scan_panes(panes, {a.pane_id for a in discovery.discover(panes)})
+                    state.prune_remote(KEEP_SECONDS)
+                sessions = discover(agents=[], panes=[], scan=False)
+                refresh_status([s for s in sessions if _worth_watching(s, now)])
+                live = [r for r in state.load_remote().values() if not r.dismissed]
+                busy = any(
+                    r.status not in cloudstatus.TERMINAL or (r.status in events.STATUS_EVENTS and r.notified != r.status)
+                    for r in live
+                )
+                # nothing is actively running (all parked at needs-input / finished): look less often
+                moving = any(r.status not in cloudstatus.TERMINAL and r.status != "needs-input" for r in live)
+                wait = interval if moving else max(interval, POLL_PARKED_SECONDS)
+            except Exception:
+                busy, wait = True, interval  # a bad pass is retried, not a reason to quit
+            if busy:
+                last_busy = now
+            if once or now - last_busy > idle_exit:
+                return 0
+            sleep(wait)
+    finally:
+        os.close(fd)  # releases the lock
+
+
 # --- background loader (what the TUI runs for remotes) ---------------------------------
 # Remote awareness is the slow, optional half of the overview, so it is lazy: the local panes are
 # drawn first, tiles come from the records already on disk (the cache), and one throttled pass in a
@@ -726,6 +934,8 @@ class Loader:
                     sessions = discover(agents, panes=panes, scan=False)
                     publish(snap(), False)
             sessions = discover(agents, panes=panes, scan=False)
+            if any(x.ref.status not in cloudstatus.TERMINAL for x in sessions):
+                ensure_monitor()  # events keep flowing after this overview is closed
             if sessions:
                 # status and peeks are independent lookups: run them side by side so the (more
                 # visible) tile bodies never wait behind a slow status GET, and publish each as it lands
@@ -827,7 +1037,7 @@ class RemoteAgent(AgentPane):
             return AgentState.PENDING  # yellow, sorts first
         if st == "running":
             return AgentState.WORKING  # blue
-        if st == "failed" or self.idle_seconds >= STALE_AFTER_SECONDS:
+        if st in ("failed", "gone") or self.idle_seconds >= STALE_AFTER_SECONDS:
             return AgentState.STALE  # red: failed, or quiet for hours like a forgotten pane
         return AgentState.IDLE  # finished / idle / unknown
 

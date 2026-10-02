@@ -92,6 +92,8 @@ def remote_subtitle_markup(agent) -> str:
         return " [bright_blue]running[/]" + open_hint
     if st == "failed":
         return f" [red bold]failed[/] [dim]{age} ago[/]" + open_hint
+    if st == "gone":
+        return f" [red]gone from claude.ai[/] [dim]{age} ago[/]" + open_hint
     if st == "finished":
         if agent.state == AgentState.STALE:
             return f" [red bold]finished, stale {age}[/]" + open_hint
@@ -179,7 +181,7 @@ def pr_subtitle_markup(statuses: list) -> str:
 
 REMOTE_STATUS_STYLES = {
     "running": "bright_blue", "idle": "grey62", "needs-input": "yellow bold",
-    "finished": "green", "failed": "red bold", "unknown": "grey50",
+    "finished": "green", "failed": "red bold", "gone": "red", "unknown": "grey50",
 }
 
 
