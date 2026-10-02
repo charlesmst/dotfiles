@@ -32,6 +32,10 @@ state.py      persistent markers: pending (carries `event`:
               stop|turn-complete|notification) AND pr (recorded PR url per pane)
 pr.py         PR association: record url on `gh pr create` (hook), fetch live
               status via `gh pr view` (TTL-cached), branch-derive fallback
+remote.py     remote (cloud) sessions from `claude --environment`: parse the launch
+              result (interactive block / `-p … --output-format json`), enrich from
+              the delegator sidecar, join with live tmux state. Status comes from
+              cloudstatus.py (read-only GET, see "Remote sessions" below).
 proc.py       process subtree pids + cwd via lsof (links a pane to its files)
 transcript.py read agent transcripts from THEIR files (claude jsonl / cursor
               sqlite blob-DAG / codex rollout jsonl); pane capture fallback
@@ -106,12 +110,45 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   (`gh pr view --web`), deriving on demand if nothing was recorded.
 - **Codex** can't record (notify-only), so its PRs rely on the derive fallback.
 
+## Remote sessions (remote.py)
+
+- **A cloud session has no process.** The local `claude` exits, so the id exists only in
+  the launching pane's scrollback (dies with the pane) or in a launcher's captured stdout.
+  Hence the one place we persist *identity*: `state` `remote/<session_id>.json`, written
+  by `agent-view remote record` (launch time, exact) or on first sight by a scrollback scan
+  of **shell** panes (`remote.scan_panes`; no agent process, command in `SHELLS`).
+- Parser is anchored (3-line block / valid JSON with a `session_…` id) — prose that merely
+  says "Created cloud session" must never match (a test pins this). First sighting wins.
+- Repo/branch come from the delegator sidecar + `git` in the *launch dir*; they are not
+  the runner's checkout. Never present them as such.
+- `remote.discover` never raises. The TUI's first frame uses `scan=False` (records only);
+  status comes from `cloudstatus.py`: **GET only**, token in memory only (never printed/logged/stored, and passed to `redact` as an exact secret), redirects refused, any error → `unknown`. A failed lookup never overwrites the last good status or emits. Transitions are claimed under a file lock (`state.update_remote_status`) so exactly one process emits. All session text goes through `redact.py` and is capped at 500 chars in events. Tests never touch a credential or the network (`tests/conftest.py`). The scrollback scan runs in its own worker (`RemoteReady`), like PR status — cold it is
+  ~0.4s on ~20 shell panes. Warm it is memoised on `(pane, last_activity)`.
+- `ls`/`doctor` local output is byte-identical when no remote sessions are known; JSON
+  rows for remote carry `kind: "remote"` and `pane_id: null` once the pane is gone.
+- `remote forget` tombstones (`dismissed`) instead of deleting, or the scan re-records it.
+- **Events**: each newly recorded session appends one `remote-created` JSONL line to
+  `agent-events.log` (`events.py`) in the `fleet` shape + `stream/kind: remote`,
+  `session_id`, `url`. It can't ride `events.sock`: `fleet-listen.py` (staff-support) drops
+  everything but `pending`/`pr`. `remote-finished` / `-failed` / `-needs-input` come from the status
+  lookup only — never invent one without it.
+- **Overview surfaces**: remote sessions are **tiles** in the TUI (`remote.RemoteAgent`, an
+  `AgentPane` look-alike: `kind=REMOTE`, `pane_id=r-<session_id>`, state mapped from the cloud
+  status — needs-input→pending, running→working, failed/5h-quiet→stale, else idle), sorted and
+  filtered with local panes; no separate section. The body is a live **peek** (`cloudstatus.fetch_peek`
+  → `remote.refresh_peeks`, ~12s active / 5min finished, exponential backoff to 120s on error, last
+  good content kept; same GET-only/redacted rules). enter / double-click / `^o` open the claude.ai
+  URL (attach is impossible); `^d`/`^k` are refused. Tiles show for active sessions, and for
+  finished/failed ones for 24h (`AGENT_VIEW_REMOTE_TILE_HOURS`). Also `tmux/agent-attention/status.sh`
+  `⇢ N` (active sessions only). Gotcha: compare against the *last rendered* remote key
+  (`_rendered_remote_key`), not a freshly recomputed one, or updates wait for the next 1s tick.
+
 Design invariants — do not break these:
 
 - **No daemon, no cache.** Everything is derived on demand from
   `tmux list-panes`, one `ps -A` snapshot, and `capture-pane`. The TUI
   refreshes via a 1s thread worker posting `SnapshotReady` messages.
-- **Minimal state.** Only pending markers persist: one file per pane in
+- **Minimal state.** Only pending markers (plus PR and remote-session identity records) persist: one file per pane in
   `~/.local/state/agent-attention/pending/`, filename = pane id with `/`→`_`,
   body = optional JSON `{"message":..., "agent":...}`. **Empty files are
   valid** — the legacy shell hooks (`tmux/agent-attention/*.sh`, still used

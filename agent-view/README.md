@@ -184,6 +184,36 @@ Example (an assistant polling a delegated agent):
 agent-view wait stocks:4.1 --json -m     # → {"status":"blocked","reason":"...","last_message":"..."}
 ```
 
+### Remote (cloud) sessions
+
+`claude --environment <ccpool_id>` starts a cloud session on a self-hosted runner and the
+local `claude` exits, so the pane looks like a bare shell. agent-view keeps those visible:
+
+```bash
+agent-view ls                 # remote sessions are listed after the local panes
+agent-view ls --json          # …as rows with "kind": "remote"  (--no-remote to omit)
+agent-view remote             # just the remote ones: id, URL, launch pane, repo/branch, prompt
+agent-view remote open [id]   # open the URL (newest by default)
+agent-view remote forget <id> # hide one
+agent-view show <id|fragment> # details
+# launch-time registry — output passes through unchanged, the session is recorded:
+claude -p "$P" --environment ccpool_… --output-format json | agent-view remote record --prompt "$P"
+```
+
+A pane whose `claude` exited after creating a cloud session reads `-> remote <url>` (not
+dead/idle). Sessions are found via `remote record`, or by scanning shell panes' scrollback
+for the `Created cloud session` block / the JSON result, and are kept for
+`AGENT_VIEW_REMOTE_DAYS` (default 7). **Status** (running / idle / needs-input / finished / failed) comes from a read-only,
+GET-only lookup of the cloud session with your existing login (`cloudstatus.py`; the token is
+never printed or logged); on any error it reads "unknown, open URL". `agent-view remote show
+<id> --last` prints the session's last message (redacted), `--tail N` its recent events, and
+`remote watch` emits `remote-finished` / `-failed` / `-needs-input` events (with a ≤500-char
+excerpt). In the live overview (`prefix + a`) a remote session is a normal tile with a `☁ REMOTE` badge,
+state colours like local agents, and a live peek at its latest assistant text and tool activity
+(refreshed ~every 12 s, read-only); `enter`/`^o` opens its claude.ai page. The status bar adds a
+`☁ N remote` count, and `tmux/agent-attention/status.sh` adds `⇢ N` to the tmux
+status line. Each new session appends a `remote-created` line to `agent-events.log`. See `REMOTE-SESSIONS.md`.
+
 ### Pull requests
 
 When an agent creates a PR, agent-view **records** it against that session and
