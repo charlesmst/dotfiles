@@ -1,7 +1,7 @@
 """Cloud status lookup: GET-only, token-safe, any error -> unknown, transitions -> events.
 
 A throwaway local HTTP server stands in for the API; the body is the shape of a real
-response for the demo session (session_01UNq…), trimmed of its 20 KB system prompt.
+response for the demo session (session_01AAA…), trimmed of its 20 KB system prompt.
 """
 import json
 import threading
@@ -11,13 +11,13 @@ import pytest
 
 from agent_view import cloudstatus, events, remote, state
 
-SID = "session_01UNqUpHzNrQ6eYiRUp1k9PB"
+SID = "session_01AAAAAAAAAAAAAAAAAAAAAA"
 TOKEN = "test-token-DO-NOT-LEAK-0123456789"
 
 
 def body(**over):
     d = {
-        "id": "cse_01UNqUpHzNrQ6eYiRUp1k9PB", "status": "paused", "worker_status": "idle",
+        "id": "cse_01AAAAAAAAAAAAAAAAAAAAAA", "status": "paused", "worker_status": "idle",
         "status_bucket": "completed", "connection_status": "disconnected",
         "environment_kind": "byoc", "requires_action_details_list": [],
         "created_at": "2026-10-01T17:19:32.675078Z", "last_event_at": "2026-10-01T17:20:24.645572Z",
@@ -26,7 +26,7 @@ def body(**over):
             "status_detail": "hostname, pwd, git HEAD, kubectl context, skills listed",
             "recent_action": "Read-only diagnostic complete",
         },
-        "external_metadata": {"current_branches": {"": "claude/read-only-diagnostic-un4t4e"}},
+        "external_metadata": {"current_branches": {"": "claude/read-only-diagnostic-abc123"}},
     }
     d.update(over)
     return {"response_shape": d}  # the API nests the session under this key
@@ -39,7 +39,7 @@ FAKE_SECRETS = [
     "AKIAIOSFODNN7EXAMPLE",
 ]
 PROBE_TEXT = (
-    "hostname: runner-7f9c\npwd: /home/user/bitso-web\nHEAD: dea95ae9521d9b1d7a7b8f7a2f5e9b6c4d3a2b1c\n"
+    "hostname: runner-7f9c\npwd: /home/user/bitso-web\nHEAD: 0123456789abcdef0123456789abcdef01234567\n"
     "kubectl context: bitso-stage\nsignadot: not installed\n"
     "skills: ship-pr, create-change, code-review\n/ship-pr resolves: yes\n"
     f"env dump: ANTHROPIC_API_KEY={FAKE_SECRETS[0]} GITHUB_TOKEN={FAKE_SECRETS[1]} "
@@ -60,7 +60,7 @@ def events_body(text=PROBE_TEXT):
         ev(7, "system", {"type": "system", "subtype": "status", "status": "idle"}),
         ev(6, "env_manager_log", {"type": "env_manager_log", "data": {"line": "noise"}}),
         ev(5, "user", {"type": "user", "message": {"content": [
-            {"type": "tool_result", "content": [{"type": "text", "text": "dea95ae9521d9b1d7a7b8f7a2f5e9b6c4d3a2b1c"}]}]}}),
+            {"type": "tool_result", "content": [{"type": "text", "text": "0123456789abcdef0123456789abcdef01234567"}]}]}}),
         ev(4, "assistant", {"type": "assistant", "message": {"content": [
             {"type": "text", "text": "Let me run the checks."},
             {"type": "tool_use", "name": "Bash", "input": {"command": "git rev-parse HEAD"}}]}}),
@@ -135,7 +135,7 @@ def test_derive_states(over, state_):
 def test_derive_extracts_detail_and_runner_branch():
     st = cloudstatus.derive(body())
     assert st.detail == "hostname, pwd, git HEAD, kubectl context, skills listed"
-    assert st.remote_branch == "claude/read-only-diagnostic-un4t4e"
+    assert st.remote_branch == "claude/read-only-diagnostic-abc123"
     assert st.last_event_at.startswith("2026-10-01T17:20")
 
 
@@ -235,7 +235,7 @@ def test_finished_is_announced_exactly_once_in_the_fleet_shape(api, tmp_path):
     assert {"pane_id", "location", "agent", "event", "message", "ts"} <= set(e)
     assert (e["stream"], e["kind"], e["session_id"], e["status"]) == ("remote", "remote", SID, "finished")
     assert e["previous_status"] == "unknown"
-    assert e["remote_branch"] == "claude/read-only-diagnostic-un4t4e"
+    assert e["remote_branch"] == "claude/read-only-diagnostic-abc123"
     assert "listed" in e["status_detail"] and e["url"] == f"https://claude.ai/code/{SID}"
 
 
@@ -326,8 +326,8 @@ def test_redact_removes_token_like_strings_but_keeps_readable_facts():
     for secret in FAKE_SECRETS:
         assert secret not in out
     assert out.count("<redacted>") >= 4
-    for keep in ("hostname: runner-7f9c", "dea95ae9521d9b1d7a7b8f7a2f5e9b6c4d3a2b1c",  # git sha
-                 "kubectl context: bitso-stage", "session_01UNqUpHzNrQ6eYiRUp1k9PB", "/ship-pr resolves: yes"):
+    for keep in ("hostname: runner-7f9c", "0123456789abcdef0123456789abcdef01234567",  # git sha
+                 "kubectl context: bitso-stage", "session_01AAAAAAAAAAAAAAAAAAAAAA", "/ship-pr resolves: yes"):
         assert keep in redact(keep) == keep
     assert redact("Authorization: Bearer abcdefghij1234567890xyz") == "Authorization: Bearer <redacted>"
     assert redact("password = hunter2hunter2") == "password=<redacted>"

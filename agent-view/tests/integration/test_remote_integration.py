@@ -29,13 +29,13 @@ async def _settle(pilot, app, min_tiles: int = 0):
     raise AssertionError("TUI never settled")
 
 
-SID = "session_01VpjMyefcP66wrGW91FtrDY"
+SID = "session_01BBBBBBBBBBBBBBBBBBBBBB"
 URL = f"https://claude.ai/code/{SID}"
-KEY = "bitso-web-11-1790868922"
+KEY = "demo-repo-11-1700000000"
 
 SCROLLBACK = (
     "$ claude --permission-mode auto --model claude-sonnet-5-5 --effort high "
-    "--environment ccpool_012j3G7HWYn93pirmbR8txGp --settings '{\"x\":true}' "
+    "--environment ccpool_FAKEFAKEFAKEFAKEFAKEFAKE --settings '{\"x\":true}' "
     f"\"$(cat '/home/u/.local/share/local-tmux-agent-delegator/sessions/prompts/{KEY}.txt')\"\n"
     "Created cloud session: Environment diagnostics check\n"
     f"Session ID: {SID}\n"
@@ -86,7 +86,7 @@ def test_bare_pane_after_remote_launch_is_flagged_and_enriched(launched, capsys)
     assert s.awaiting_flag and s.flag == f"-> remote {URL}"
     r = s.ref
     assert r.title == "Environment diagnostics check"
-    assert r.environment == "ccpool_012j3G7HWYn93pirmbR8txGp"
+    assert r.environment == "ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"
     # joined across soft-wraps -> matched the delegator sidecar by prompt-file key
     assert r.delegator_key == KEY and r.worktree == "runner-env-probe" and r.repo == "bitso-web"
     assert r.created_source == "delegator" and r.prompt.startswith("Read-only check")
@@ -149,7 +149,7 @@ def _wait_for_prompt_text(pane, text, timeout=5.0):
 
 
 def test_remote_forget_and_show(launched, capsys):
-    assert main(["show", "01Vpjmy"]) == 0
+    assert main(["show", "01BBBBBBB"]) == 0
     out = capsys.readouterr().out
     assert "kind     : remote" in out and "unknown, open URL" in out and URL in out
     assert main(["remote", "forget", SID]) == 0
@@ -216,7 +216,7 @@ async def test_remote_session_is_a_normal_tile_with_a_live_peek(remote_tile, tmu
             assert "Bash: ls apps/" in body and "Found two apps" in body  # the live peek
         else:
             panel = str(app.query_one("#agent-list").render())
-            assert "☁" in panel and "remote session_01Vp" in panel
+            assert "☁" in panel and "remote session_01BB" in panel
             assert "REMOTE" in app.query_one("#preview").border_title
         bar = str(app.query_one("#statusbar").render())
         assert "1/1 agents" in bar and "☁ 1 remote" in bar

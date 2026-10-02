@@ -7,9 +7,9 @@ prompt and the agent vanishes from discovery. There are two launch shapes.
 Interactive — the CLI prints this block into the pane's scrollback::
 
     Created cloud session: Environment diagnostics check
-    Session ID: session_01VpjMyefcP66wrGW91FtrDY
-    View: https://claude.ai/code/session_01VpjMyefcP66wrGW91FtrDY?from=cli&m=0
-    Resume with: claude --teleport session_01VpjMyefcP66wrGW91FtrDY
+    Session ID: session_01BBBBBBBBBBBBBBBBBBBBBB
+    View: https://claude.ai/code/session_01BBBBBBBBBBBBBBBBBBBBBB?from=cli&m=0
+    Resume with: claude --teleport session_01BBBBBBBBBBBBBBBBBBBBBB
 
 Documented — ``claude -p "<prompt>" --environment <ccpool_id> --output-format
 json`` is fire-and-forget (~5s) and prints one JSON object::

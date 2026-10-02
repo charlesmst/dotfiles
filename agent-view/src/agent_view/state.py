@@ -250,7 +250,7 @@ def remote_dir() -> str:
 
 @dataclass
 class RemoteRef:
-    session_id: str  # "session_01Vp…" — also the record's filename stem
+    session_id: str  # "session_01BB…" — also the record's filename stem
     url: str  # canonical https://claude.ai/code/session_… (query stripped)
     title: str | None = None  # the cloud session title the CLI printed
     environment: str | None = None  # ccpool_… from the launch line, if visible

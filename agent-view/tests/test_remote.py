@@ -12,13 +12,13 @@ import pytest
 
 from agent_view import remote, state
 
-SID = "session_01VpjMyefcP66wrGW91FtrDY"
+SID = "session_01BBBBBBBBBBBBBBBBBBBBBB"
 URL = f"https://claude.ai/code/{SID}"
-KEY = "bitso-web-11-1790868922"
+KEY = "demo-repo-11-1700000000"
 
 LAUNCH = (
     "[c@m] ➜ runner-env-probe claude --permission-mode auto --model claude-sonnet-5-5 "
-    "--effort high --environment ccpool_012j3G7HWYn93pirmbR8txGp "
+    "--effort high --environment ccpool_FAKEFAKEFAKEFAKEFAKEFAKE "
     "--settings '{\"enableAllProjectMcpServers\":true}' "
     f"\"$(cat '/h/.local/share/local-tmux-agent-delegator/sessions/prompts/{KEY}.txt')\"\n"
 )
@@ -46,7 +46,7 @@ def test_parse_real_output_shape():
     assert c.session_id == SID
     assert c.url == URL  # ?from=cli&m=0 dropped
     assert c.title == "Environment diagnostics check"
-    assert c.environment == "ccpool_012j3G7HWYn93pirmbR8txGp"
+    assert c.environment == "ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"
     assert c.delegator_key == KEY
 
 
@@ -71,12 +71,12 @@ def test_parse_multiple_launches_each_gets_its_own_launch_context():
     other = BLOCK.replace(SID, "session_01Other").replace("diagnostics check", "second")
     text = (
         LAUNCH + BLOCK
-        + LAUNCH.replace("ccpool_012j3G7HWYn93pirmbR8txGp", "ccpool_second").replace(KEY, "k2")
+        + LAUNCH.replace("ccpool_FAKEFAKEFAKEFAKEFAKEFAKE", "ccpool_second").replace(KEY, "k2")
         + other + BLOCK  # the first block scrolled back in: deduped, not doubled
     )
     got = {c.session_id: c for c in remote.parse_created(text)}
     assert set(got) == {SID, "session_01Other"}
-    assert got[SID].environment == "ccpool_012j3G7HWYn93pirmbR8txGp"
+    assert got[SID].environment == "ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"
     assert got["session_01Other"].environment == "ccpool_second"
     assert got["session_01Other"].delegator_key == "k2"
 
@@ -194,7 +194,7 @@ def test_resolve_by_id_fragment_url_pane_and_location():
     a, b = _session(), _session()
     b.ref = state.RemoteRef(session_id="session_01Other", url="https://claude.ai/code/session_01Other")
     both = [a, b]
-    for ident in (SID, "01Vpj", URL, "%49", "bitso-web:11.1"):
+    for ident in (SID, "01BBB", URL, "%49", "bitso-web:11.1"):
         assert remote.resolve(both, ident).session is a
     assert remote.resolve(both, "session_01").error == "'session_01' is ambiguous"
     assert remote.resolve(both, "nope").session is None
@@ -216,10 +216,10 @@ def test_discover_never_raises(monkeypatch):
 
 # --- documented launch: -p … --output-format json ----------------------------
 
-GU = "session_01Gu53UQiGKkk39PRY5zCuf1"
+GU = "session_01CCCCCCCCCCCCCCCCCCCCCC"
 JSON_OUT = (
     '{"ok":true,"session_id":"%s","title":"Environment diagnostics check",'
-    '"url":"https://claude.ai/code/%s?from=cli&m=0","pool_id":"ccpool_012j3G7HWYn93pirmbR8txGp"}\n'
+    '"url":"https://claude.ai/code/%s?from=cli&m=0","pool_id":"ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"}\n'
     % (GU, GU)
 )
 
@@ -229,7 +229,7 @@ def test_parse_json_launch_result():
     (c,) = remote.parse_created(text)
     assert c.session_id == GU and c.url == f"https://claude.ai/code/{GU}"
     assert c.title == "Environment diagnostics check"
-    assert c.environment == "ccpool_012j3G7HWYn93pirmbR8txGp"  # pool_id wins over the argv guess
+    assert c.environment == "ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"  # pool_id wins over the argv guess
     assert c.prompt == "Read-only check, no changes"
 
 
@@ -318,7 +318,7 @@ def test_registry_emits_one_remote_created_in_the_fleet_shape(env):
     assert (e["stream"], e["kind"], e["event"]) == ("remote", "remote", "remote-created")
     assert (e["session_id"], e["url"]) == (GU, f"https://claude.ai/code/{GU}")
     assert e["status"] == "unknown" and e["prompt"] == "Read-only check"
-    assert e["environment"] == "ccpool_012j3G7HWYn93pirmbR8txGp"
+    assert e["environment"] == "ccpool_FAKEFAKEFAKEFAKEFAKEFAKE"
     assert isinstance(e["ts"], float)
 
 

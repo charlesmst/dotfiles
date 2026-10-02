@@ -7,7 +7,7 @@ import pytest
 from agent_view import cloudstatus, remote, state
 from agent_view.model import AgentKind, AgentState
 
-SID = "session_01UNqUpHzNrQ6eYiRUp1k9PB"
+SID = "session_01AAAAAAAAAAAAAAAAAAAAAA"
 
 
 @pytest.fixture(autouse=True)
@@ -56,12 +56,12 @@ def test_identity_is_not_pane_coordinates():
     assert a.kind is AgentKind.REMOTE and a.is_remote
     assert a.pane_id == f"r-{SID}" and a.pool == "main"
     assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", f"tile-{a.pane_id}")  # a valid Textual widget id
-    assert a.location == "remote session_01UN…"
+    assert a.location == "remote session_01AA…"
     assert a.url == f"https://claude.ai/code/{SID}"
 
 
 def test_pool_falls_back_to_the_environment_id():
-    assert agent("running", environment="ccpool_012j3G7HWYn93pirmbR8txGp").pool == "ccpool_012j3…"
+    assert agent("running", environment="ccpool_FAKEFAKEFAKEFAKEFAKEFAKE").pool == "ccpool_FAKEF…"
     assert agent("running").pool is None
 
 
