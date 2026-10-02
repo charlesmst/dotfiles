@@ -10,6 +10,7 @@ Views (ctrl-l toggles, choice persists):
 Keys:
   type to filter (fzf-style) · arrows/tab move · enter jump
   ctrl-d kill agent process · ctrl-k kill tmux session · ctrl-r refresh
+  remote (cloud) sessions are tiles too: ☁ REMOTE badge, live peek, enter/ctrl-o open the URL
   ctrl-l toggle grid/list · pgup/pgdn scroll preview (list view)
   esc clear filter / quit · ctrl-c quit
 """
@@ -28,13 +29,14 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Label, Static
 
-from .. import discovery, fuzzy, state, tmux
+from .. import discovery, fuzzy, remote, state, tmux
 from ..model import AgentKind, AgentPane, AgentState, format_age
 
 KIND_BADGES = {
     AgentKind.CLAUDE: ("C", "cyan"),
     AgentKind.CURSOR: ("✦", "magenta"),
     AgentKind.CODEX: ("X", "green"),
+    AgentKind.REMOTE: ("☁", "magenta"),
 }
 
 STATE_ICONS = {
@@ -63,7 +65,43 @@ def fit(text: str, width: int) -> str:
     return text.ljust(width)
 
 
+def esc(text: str) -> str:
+    return text.replace("[", r"\[")
+
+
+def remote_title_markup(agent) -> str:
+    """`☁ REMOTE ● <title> · pool main` — the badge stands where a local tile shows pane coordinates."""
+    icon, icon_color = STATE_ICONS[agent.state]
+    title = f" [magenta bold]☁ REMOTE[/] [{icon_color}]{icon}[/] [bold]{esc(agent.title or agent.remote.session_id)}[/]"
+    if agent.pool:
+        title += f" [dim]· pool {esc(agent.pool)}[/]"
+    return title + " "
+
+
+def remote_subtitle_markup(agent) -> str:
+    """State in the colours local tiles use, plus how to open it (attach is impossible)."""
+    st = agent.remote.status
+    age = format_age(agent.idle_seconds)
+    open_hint = " [dim]↵ open in claude.ai[/] "
+    if st == "needs-input":
+        msg = esc((agent.pending_message or "needs your input")[:60])
+        return f" [yellow bold]● {msg}[/] [dim]{age}[/]" + open_hint
+    if st == "running":
+        return " [bright_blue]running[/]" + open_hint
+    if st == "failed":
+        return f" [red bold]failed[/] [dim]{age} ago[/]" + open_hint
+    if st == "finished":
+        if agent.state == AgentState.STALE:
+            return f" [red bold]finished, stale {age}[/]" + open_hint
+        return f" [green]finished[/] [dim]{age} ago[/]" + open_hint
+    if st == "idle":
+        return f" [dim]idle {age}[/]" + open_hint
+    return " [dim]status unknown[/]" + open_hint
+
+
 def title_markup(agent: AgentPane) -> str:
+    if getattr(agent, "is_remote", False):
+        return remote_title_markup(agent)
     badge, badge_color = KIND_BADGES[agent.kind]
     icon, icon_color = STATE_ICONS[agent.state]
     location = agent.location.replace("[", r"\[")
@@ -75,6 +113,8 @@ def title_markup(agent: AgentPane) -> str:
 
 
 def subtitle_markup(agent: AgentPane) -> str:
+    if getattr(agent, "is_remote", False):
+        return remote_subtitle_markup(agent)
     if agent.state == AgentState.PENDING:
         msg = (agent.pending_message or "needs attention").replace("[", r"\[")
         since = (
@@ -135,6 +175,12 @@ def pr_subtitle_markup(statuses: list) -> str:
     return pr_summary_markup(statuses[0]) + f" [dim](+{len(statuses) - 1} more)[/]"
 
 
+REMOTE_STATUS_STYLES = {
+    "running": "bright_blue", "idle": "grey62", "needs-input": "yellow bold",
+    "finished": "green", "failed": "red bold", "unknown": "grey50",
+}
+
+
 def ansi_preview(preview_ansi: str) -> Text:
     text = Text.from_ansi(preview_ansi)
     # Crop, don't wrap: pane content is already wrapped at the source
@@ -163,6 +209,7 @@ class AgentTile(Static):
         self.border_subtitle = subtitle
         for st in AgentState:
             self.set_class(agent.state == st, f"-{st.value}")
+        self.set_class(getattr(agent, "is_remote", False), "-remote")
         self.refresh(layout=False)
 
     def render(self) -> Text:
@@ -205,10 +252,12 @@ class SnapshotReady(Message):
         self,
         agents: list[AgentPane],
         previews: dict[str, str],
+        remotes: list | None = None,
     ) -> None:
         super().__init__()
         self.agents = agents
         self.previews = previews
+        self.remotes = remotes or []  # remote (cloud) sessions, see remote.py
 
 
 class PrStatusReady(Message):
@@ -222,6 +271,14 @@ class PrStatusReady(Message):
     def __init__(self, pr_statuses: dict[str, list]) -> None:
         super().__init__()
         self.pr_statuses = pr_statuses
+
+
+class RemoteReady(Message):
+    """Posted by the remote worker after a scrollback scan (off the first frame)."""
+
+    def __init__(self, remotes: list) -> None:
+        super().__init__()
+        self.remotes = remotes
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -294,6 +351,14 @@ class AgentViewApp(App[None]):
     #preview.-working { border: round steelblue; }
     #preview.-stale { border: round darkred; }
     #statusbar { height: 1; dock: bottom; padding: 0 1; }
+    AgentTile.-remote { border: round #9a5c8a; }
+    AgentTile.-remote.-pending { border: round yellow; }
+    AgentTile.-remote.-working { border: round steelblue; }
+    AgentTile.-remote.-stale { border: round darkred; color: $text-muted; }
+    AgentTile.-remote.-selected { border: heavy #d98cc4; }
+    AgentTile.-remote.-pending.-selected { border: heavy yellow; }
+    AgentTile.-remote.-working.-selected { border: heavy steelblue; }
+    AgentTile.-remote.-stale.-selected { border: heavy red; }
     #empty { content-align: center middle; height: 1fr; color: $text-muted; }
     """
 
@@ -305,10 +370,13 @@ class AgentViewApp(App[None]):
         self.selected = 0
         self.view_mode = state.load_view_mode()
         self._previews: dict[str, str] = {}
+        self.remotes: list[remote.RemoteSession] = []  # cloud sessions (drawn as tiles, see _all_agents)
         self._pr_statuses: dict[str, list] = {}  # pane_id → [PRStatus] (recorded PRs)
         self._tile_order: list[str] | None = None  # pane ids currently mounted
         self._preview_pane: str | None = None  # pane shown in the list preview
         self.snapshots_applied = 0  # refresh cycles completed (tests wait on it)
+        self._remote_agents: list[remote.RemoteAgent] = []  # cloud sessions as tiles
+        self._rendered_remote_key: tuple | None = None  # remote state at the last redraw
 
     def compose(self) -> ComposeResult:
         yield Grid(id="grid")
@@ -345,16 +413,52 @@ class AgentViewApp(App[None]):
         # was opened to show, and they're all local (tmux + one ps). PR status
         # is a network round-trip (~1.5s cold per PR) and would otherwise block
         # the first frame, so it's fetched in a separate worker below.
-        self.post_message(SnapshotReady(agents, previews))
+        self.post_message(SnapshotReady(agents, previews, remote.discover(agents, scan=False)))
 
     async def on_snapshot_ready(self, message: SnapshotReady) -> None:
         self.agents = message.agents
         self._previews = message.previews
+        self.remotes = message.remotes
+        self._remote_agents = remote.remote_agents(self.remotes)
+        self._remote_previews()
         # Keep the previously-known PR statuses (don't clear) so subtitles
         # don't flicker while the PR worker re-fetches in the background.
         await self._rebuild_view()
         self.snapshots_applied += 1
         self._refresh_pr_statuses(message.agents)
+        self._refresh_remotes(message.agents)
+
+    def _refresh_remotes(self, agents: list[AgentPane]) -> None:
+        """Scan scrollback, look up status, fetch peeks — all off the UI thread.
+
+        The scan is a capture per shell pane (~0.4s cold on 20+ panes, memoised after), status
+        and peeks are read-only GETs throttled per session (~12s, with backoff on errors), so
+        this is cheap to call every second and must never sit in front of the first frame.
+        """
+        def work() -> None:
+            sessions = remote.discover(agents, refresh=True)
+            tiles = remote.remote_agents(sessions)
+            remote.refresh_peeks([t.remote for t in tiles])
+            self.post_message(RemoteReady(sessions))
+
+        self.run_worker(work, thread=True, exclusive=True, group="remote")
+
+    def _remote_previews(self) -> None:
+        deep = self.view_mode == "list"
+        for a in self._remote_agents:
+            self._previews[a.pane_id] = a.peek_ansi(LIST_CAPTURE_LINES if deep else GRID_CAPTURE_LINES)
+
+    async def on_remote_ready(self, message: RemoteReady) -> None:
+        self.remotes = message.remotes
+        self._remote_agents = remote.remote_agents(message.remotes)
+        self._remote_previews()
+        if self._remote_key() == self._rendered_remote_key:
+            return  # what's on screen is already current — skip a redundant rebuild
+        await self._rebuild_view()
+
+    def _remote_key(self) -> tuple:
+        """Everything about remote tiles a viewer could see change (status, pane, peek content)."""
+        return (remote.change_key(self.remotes), remote.peek_key(self.remotes))
 
     def _refresh_pr_statuses(self, agents: list[AgentPane]) -> None:
         """Fetch PR status off the UI thread; skip entirely when no PRs."""
@@ -397,11 +501,15 @@ class AgentViewApp(App[None]):
         self._pr_statuses = message.pr_statuses
         await self._rebuild_view()
 
+    def _all_agents(self) -> list[AgentPane]:
+        """Local panes and remote sessions as one sorted list of tiles."""
+        return sorted([*self.agents, *self._remote_agents], key=AgentPane.sort_key)
+
     def _filtered(self) -> list[AgentPane]:
         if not self.filter_query:
-            return list(self.agents)
+            return self._all_agents()
         scored = []
-        for agent in self.agents:
+        for agent in self._all_agents():
             s = fuzzy.score(self.filter_query, agent.filter_haystack())
             if s is not None:
                 scored.append((agent.sort_key(), -s, agent))
@@ -437,6 +545,7 @@ class AgentViewApp(App[None]):
         else:
             self._render_list()
         self._update_statusbar()
+        self._rendered_remote_key = self._remote_key()
 
     async def _rebuild_grid(self, grid: Grid) -> None:
         new_order = [a.pane_id for a in self.filtered_agents]
@@ -535,16 +644,20 @@ class AgentViewApp(App[None]):
             )
 
     def _update_statusbar(self) -> None:
-        pending = sum(1 for a in self.agents if a.state == AgentState.PENDING)
-        stale = sum(1 for a in self.agents if a.state == AgentState.STALE)
-        counts = f"{len(self.filtered_agents)}/{len(self.agents)} agents"
+        everything = self._all_agents()
+        pending = sum(1 for a in everything if a.state == AgentState.PENDING)
+        stale = sum(1 for a in everything if a.state == AgentState.STALE)
+        local_shown = sum(1 for a in self.filtered_agents if not getattr(a, "is_remote", False))
+        counts = f"{local_shown}/{len(self.agents)} agents"
         if pending:
             counts += f" · [yellow]● {pending}[/]"
         if stale:
             counts += f" · [red]✖ {stale} stale[/]"
+        if self._remote_agents:
+            counts += f" · [magenta]☁ {len(self._remote_agents)} remote[/]"
         other = "list" if self.view_mode == "grid" else "grid"
         help_text = (
-            "[dim]enter[/] jump  [dim]^o[/] PR  [dim]^d[/] kill agent  [dim]^k[/] kill session"
+            "[dim]enter[/] jump/open  [dim]^o[/] PR/open  [dim]^d[/] kill agent  [dim]^k[/] kill session"
             f"  [dim]^l[/] {other}"
         )
         if self.view_mode == "list":
@@ -591,9 +704,31 @@ class AgentViewApp(App[None]):
         self.selected = max(0, min(len(self.filtered_agents) - 1, self.selected + delta))
         self._show_selection()
 
+    def open_remote(self, agent) -> None:
+        """Open a remote session's claude.ai page. Attach is not possible, so this is the way in."""
+        url = agent.url
+
+        def _worker() -> None:
+            import webbrowser
+
+            try:
+                ok = bool(webbrowser.open(url))
+            except Exception:
+                ok = False
+            self.call_from_thread(
+                self.notify,
+                f"opening {url}" if ok else f"could not open a browser — {url}",
+                severity="information" if ok else "error",
+            )
+
+        self.run_worker(_worker, thread=True, group="open-remote")
+
     def jump_to_selected(self) -> None:
         agent = self.current
         if agent is None:
+            return
+        if getattr(agent, "is_remote", False):
+            self.open_remote(agent)  # no pane to jump to; stay open so the tile keeps updating
             return
         state.clear_pending(agent.pane_id)
         tmux.jump_to_pane(agent.session, agent.window_index, agent.pane_id)
@@ -603,6 +738,9 @@ class AgentViewApp(App[None]):
         """Open the selected agent's PR(s) in the browser (recorded, else derived)."""
         agent = self.current
         if agent is None:
+            return
+        if getattr(agent, "is_remote", False):
+            self.open_remote(agent)  # ^o opens the PR for a local agent, the session page for a remote one
             return
         # URLs we already have status for; else resolve (may derive) in-worker.
         known = [s.url for s in self._pr_statuses.get(agent.pane_id, []) if s.url]
@@ -630,6 +768,9 @@ class AgentViewApp(App[None]):
         agent = self.current
         if agent is None:
             return
+        if getattr(agent, "is_remote", False):
+            self.notify("a remote session has no local process to kill", severity="warning")
+            return
 
         def _confirmed(yes: bool | None) -> None:
             if yes and agent is not None:
@@ -652,6 +793,9 @@ class AgentViewApp(App[None]):
         agent = self.current
         if agent is None:
             return
+        if getattr(agent, "is_remote", False):
+            self.notify("a remote session is not in a tmux session", severity="warning")
+            return
         others = sum(1 for a in self.agents if a.session == agent.session) - 1
         extra = f" ({others} more agent(s) inside!)" if others > 0 else ""
 
@@ -672,6 +816,7 @@ class AgentViewApp(App[None]):
         self.view_mode = "list" if self.view_mode == "grid" else "grid"
         state.save_view_mode(self.view_mode)
         self._tile_order = None  # force a grid rebuild when switching back
+        self._remote_previews()
         await self._rebuild_view()
         self.refresh_data()  # re-capture at the right depth
 
