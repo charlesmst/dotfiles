@@ -17,3 +17,11 @@ def _fresh_token_cache():
     cloudstatus.forget_token()
     yield
     cloudstatus.forget_token()
+
+
+@pytest.fixture(autouse=True)
+def _codex_home_is_empty(tmp_path, monkeypatch):
+    """No test may read the developer's real ~/.codex; codex tests build their own store."""
+    home = tmp_path / "codex-home-empty"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))

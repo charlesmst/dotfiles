@@ -38,7 +38,8 @@ remote.py     remote (cloud) sessions from `claude --environment`: parse the lau
               cloudstatus.py (read-only GET, see "Remote sessions" below).
 proc.py       process subtree pids + cwd via lsof (links a pane to its files)
 transcript.py read agent transcripts from THEIR files (claude jsonl / cursor
-              sqlite blob-DAG / codex rollout jsonl); pane capture fallback
+              sqlite blob-DAG / codex rollout jsonl)
+codex.py      read-only Codex store: threads DB + rollout parse + status (CLI and desktop app); pane capture fallback
 report.py     AgentReport: status (working/idle/done/blocked/stale) from
               markers+activity, last message, and `resolve()` (id → pane)
 tmux.py       all tmux subprocess calls; honors AGENT_VIEW_TMUX_ARGS
@@ -85,9 +86,23 @@ Purpose: let an assistant navigate the fleet from the CLI. Design rules:
   (`0x0a 0x20` + 32-byte id refs) forming a DAG headed by
   `meta.latestRootBlobId` (stored hex-encoded). We DFS from the head; if that
   yields nothing we salvage every JSON blob (order-agnostic).
-- **Codex is best-effort** — no rollout files existed on the dev machine, so
-  the reader is tolerant (accepts role+content directly or wrapped in
-  payload/message) but untested against real data.
+- **Codex (`codex.py`)** — one read-only reader for the Codex store that both the Codex CLI and
+  the ChatGPT desktop app write (`$CODEX_HOME`, default `~/.codex`): `state_5.sqlite` `threads`
+  (opened `mode=ro`, `immutable=1` only as a fallback; never written) and the `rollout-*.jsonl`
+  files. Real record shape: `{"timestamp","type","payload"}` — `response_item/message` (role
+  user/assistant; `developer` is Codex's own system prompt and is skipped, as are injected
+  `<environment_context>`-style user turns), `function_call`/`custom_tool_call` (+`_output`), and
+  `event_msg` `task_started`/`task_complete`. **Status comes from the last `task_*` event**, not the
+  last line (the desktop app appends `thread_settings_applied` long after a turn ended); a started
+  turn with no completion is `working` only for 120s, then `idle`. Only the 256KB tail is parsed
+  for `ls`; the whole file only for `transcript`. Desktop threads (`originator == "Codex Desktop"`)
+  have no pane, so `ls` lists them in their own section (`kind: "codex-desktop"` in `--json`,
+  window `AGENT_VIEW_CODEX_HOURS`, default 24h, `--no-codex` to omit) and `show`/`transcript`
+  accept `codex:<id-prefix>` or a unique title substring. CLI threads are *not* listed there —
+  they already are panes. A Codex **pane** finds its thread by exact `cwd` match (newest wins; two
+  panes in one directory share one answer) and no longer falls back to "newest rollout of any
+  session". The Daybreak flag (`threads.daybreak_enabled`) is shown, nothing more. The TUI does not
+  draw desktop threads as tiles (there is nothing to jump to or kill); that is a follow-up.
 
 ## PR association (pr.py)
 

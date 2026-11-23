@@ -219,6 +219,56 @@ def _print_remote_section(remotes) -> None:
             print(line)
 
 
+def _codex_sessions(args) -> list:
+    """ChatGPT-desktop Codex threads (read-only, from ``~/.codex``); never raises."""
+    if getattr(args, "no_codex", False):
+        return []
+    try:
+        from . import codex
+
+        return codex.discover()
+    except Exception:  # noqa: BLE001 — a broken store must not break `ls`
+        return []
+
+
+def _print_codex_section(sessions) -> None:
+    """Codex-desktop rows under the local list; prints nothing when there are none."""
+    from .model import format_age
+
+    if not sessions:
+        return
+    print(f"\ncodex desktop sessions · {len(sessions)} (read from ~/.codex; status from the rollout)")
+    for s in sessions:
+        t = s.thread
+        flag = " daybreak" if t.daybreak else ""
+        print(f"codex:{t.id[:8]:8} {s.status:8} {_truncate(t.title or '(untitled)', 34):34} "
+              f"idle={format_age(s.idle_seconds):>4} {t.model or '?'}{flag}")
+        if s.last_message:
+            print(f"                 last: {_truncate(s.last_message.replace(chr(10), ' '), 90)}")
+
+
+def _show_codex(s, as_json: bool) -> int:
+    from .model import format_age
+
+    if as_json:
+        print(json.dumps(s.to_dict(), indent=2))
+        return 0
+    t = s.thread
+    print(f"id       : codex:{t.id[:8]}  ({t.id})")
+    print(f"kind     : {'codex-desktop' if t.desktop else 'codex'}")
+    print(f"status   : {s.status}")
+    print(f"title    : {t.title or '(untitled)'}")
+    print(f"model    : {t.model or '?'}" + ("  (daybreak enabled)" if t.daybreak else ""))
+    print(f"cwd      : {t.cwd}")
+    print(f"idle     : {format_age(s.idle_seconds)}")
+    print(f"rollout  : {t.rollout_path}")
+    if s.last_message:
+        print("\nlast message  [codex-jsonl]:")
+        for line in s.last_message.splitlines()[:40]:
+            print(f"  {line}")
+    return 0
+
+
 def cmd_ls(args: argparse.Namespace) -> int:
     """One-shot list of live agents + status (render once, machine-readable)."""
     from . import discovery, report
@@ -226,6 +276,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
     agents = discovery.discover()
     reports = [report.report_for(a) for a in agents]
     remotes = [] if args.no_remote else _remote_sessions(agents)
+    codex_sessions = _codex_sessions(args)
 
     want_msg = args.last_message
     want_pr = args.pr
@@ -249,12 +300,14 @@ def cmd_ls(args: argparse.Namespace) -> int:
                 ]
             rows.append(d)
         rows.extend(s.to_dict() for s in remotes)  # kind: "remote"
+        rows.extend(s.to_dict() for s in codex_sessions)  # kind: "codex-desktop"
         print(json.dumps(rows, indent=2))
         return 0
 
     if not reports:
         print("no live agent panes found")
         _print_remote_section(remotes)
+        _print_codex_section(codex_sessions)
         return 0
 
     for r in reports:
@@ -279,6 +332,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
     summary = " · ".join(f"{k} {v}" for k, v in sorted(counts.items()))
     print(f"\n{len(reports)} agents · {summary}")
     _print_remote_section(remotes)
+    _print_codex_section(codex_sessions)
     return 0
 
 
@@ -513,6 +567,11 @@ def cmd_show(args: argparse.Namespace) -> int:
             rres = remote.resolve(remote.discover(agents, refresh=True), args.id)
             if rres.session is not None:
                 return _show_remote(rres.session, args.json)
+            from . import codex
+
+            cres = codex.resolve(_codex_sessions(args), args.id)
+            if cres.session is not None:
+                return _show_codex(cres.session, args.json)
         _print_resolution_error(res, args.id)
         return 1
 
@@ -559,6 +618,32 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _transcript_codex(s, args: argparse.Namespace) -> int:
+    from . import transcript as transcript_mod
+
+    t = transcript_mod.read_codex(s.thread.rollout_path)
+    turns = t.turns
+    if args.role:
+        turns = [tn for tn in turns if tn.role in set(args.role)]
+    if args.tail and args.tail > 0:
+        turns = turns[-args.tail :]
+    ident = f"codex:{s.thread.id[:8]}"
+    if args.json:
+        print(json.dumps({
+            "id": ident, "source": t.source, "path": t.path,
+            "turns": [{"role": tn.role, "text": tn.text, "ts": tn.ts} for tn in turns],
+        }, indent=2))
+        return 0
+    print(f"# transcript {ident}  [source: {t.source}" + (f" · {t.path}]" if t.path else "]"))
+    if not turns:
+        print("(empty)")
+        return 0
+    for tn in turns:
+        print(f"\n─── {tn.role} ───")
+        print(tn.text)
+    return 0
+
+
 def cmd_transcript(args: argparse.Namespace) -> int:
     """Dump the transcript for one agent, read from the agent's own files."""
     from . import discovery, report
@@ -567,6 +652,12 @@ def cmd_transcript(args: argparse.Namespace) -> int:
     agents = discovery.discover()
     res = report.resolve(agents, args.id)
     if res.pane is None:
+        if not res.candidates:  # not a pane — maybe a ChatGPT-desktop Codex session
+            from . import codex
+
+            cres = codex.resolve(_codex_sessions(args), args.id)
+            if cres.session is not None:
+                return _transcript_codex(cres.session, args)
         _print_resolution_error(res, args.id)
         return 1
 
@@ -815,6 +906,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="local panes only: omit remote (cloud) sessions "
                          "(`claude --environment …`), which are otherwise "
                          "listed after the panes / as kind=remote in --json")
+    ls.add_argument("--no-codex", action="store_true",
+                    help="omit ChatGPT-desktop Codex sessions (read from ~/.codex), "
+                         "otherwise listed after the panes / as kind=codex-desktop in --json")
     ls.set_defaults(func=cmd_ls)
 
     rem = sub.add_parser(

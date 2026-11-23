@@ -126,6 +126,14 @@ agent-view event pending --agent claude --event stop \
   --message "Turn finished" --notify /tmp/fleet.sock
 ```
 
+### ChatGPT desktop app / Codex sessions
+
+`ls` also lists the ChatGPT desktop app's Codex threads (read-only from `~/.codex`, last 24h;
+`AGENT_VIEW_CODEX_HOURS` to change, `--no-codex` to hide), with status taken from the rollout
+(`working` / `done`) and a `daybreak` marker when the thread has it enabled. Read one with
+`agent-view show codex:<id>` / `agent-view transcript codex:<id>` (id prefix or a unique title word).
+Codex CLI panes are discovered like Claude/Cursor panes and read from the same store.
+
 ### AI-friendly layer (`ls` / `show` / `transcript` / `wait`)
 
 A small, render-once, `--json`-capable surface an assistant (or a script)
@@ -136,7 +144,7 @@ Transcripts and last-messages are read straight from each agent's own files
 (**no new state**); status rides the hook markers, not pane scraping.
 
 ```
-agent-view ls [--json] [-m] [--pr]   # list agents + status (one shot)
+agent-view ls [--json] [-m] [--pr] [--no-codex]   # list agents + status (one shot)
 agent-view show <id> [--json] [--no-pr]   # status + last message + PR + metadata
 agent-view transcript <id> [--json] [--tail N] [--role user|assistant|tool|system] [--no-pane-fallback]
 agent-view wait <id> [--json] [-m] [--timeout S] [--interval S] [--startup S]

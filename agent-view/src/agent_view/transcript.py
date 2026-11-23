@@ -382,17 +382,21 @@ def _cursor(pids: list[int]) -> Transcript:
     return read_cursor(db)
 
 
-# --- Codex CLI (best-effort) ------------------------------------------------
+# --- Codex (CLI and ChatGPT desktop app) --------------------------------------
+# Real rollout format and the thread store live in ``codex.py``; the legacy tolerant reader below
+# is kept only for rollouts that carry bare ``role``/``content`` records.
 
 
 def _codex_rollouts() -> list[str]:
-    base = os.path.expanduser("~/.codex/sessions")
+    from . import codex
+
+    base = os.path.join(codex.home(), "sessions")
     files = glob.glob(os.path.join(base, "**", "rollout-*.jsonl"), recursive=True)
     files += glob.glob(os.path.join(base, "*.jsonl"))
     return files
 
 
-def read_codex(path: str) -> Transcript:
+def _read_codex_legacy(path: str) -> Transcript:
     turns: list[Turn] = []
     try:
         with open(path) as f:
@@ -404,8 +408,7 @@ def read_codex(path: str) -> Transcript:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                # Rollout lines vary; accept anything carrying role + content,
-                # or a payload/message envelope around one.
+                # Accept anything carrying role + content, or a payload/message envelope around one.
                 obj = rec
                 for key in ("payload", "message", "msg"):
                     inner = rec.get(key) if isinstance(rec, dict) else None
@@ -431,11 +434,26 @@ def read_codex(path: str) -> Transcript:
     return Transcript(source="codex-jsonl", path=path, turns=turns)
 
 
+def read_codex(path: str) -> Transcript:
+    from . import codex
+
+    ro = codex.read_rollout(path)
+    if ro is not None and ro.turns:
+        turns = [Turn(role=t.role, text=t.text, ts=t.ts) for t in ro.turns]
+        return Transcript(source="codex-jsonl", path=path, turns=turns)
+    return _read_codex_legacy(path)
+
+
 def _codex(pids: list[int]) -> Transcript:
-    files = _codex_rollouts()
+    from . import codex
+
+    cwd = proc.first_cwd(pids)
+    thread = codex.find_thread(cwd) if cwd else None  # exact cwd match, newest thread
+    if thread and thread.rollout_path and os.path.exists(thread.rollout_path):
+        return read_codex(thread.rollout_path)
+    files = _codex_rollouts()  # no store row: fall back to the newest rollout that mentions the cwd
     if not files:
         return Transcript(source="none", path=None)
-    cwd = proc.first_cwd(pids)
     candidates = files
     if cwd:
         matched = []
@@ -443,14 +461,14 @@ def _codex(pids: list[int]) -> Transcript:
             try:
                 with open(path) as f:
                     head = f.read(4096)
-                if f'"{cwd}"' in head or cwd in head:
+                if f'"{cwd}"' in head:
                     matched.append(path)
             except OSError:
                 continue
-        if matched:
-            candidates = matched
-    newest = max(candidates, key=lambda p: os.path.getmtime(p))
-    return read_codex(newest)
+        candidates = matched
+    if not candidates:
+        return Transcript(source="none", path=None)
+    return read_codex(max(candidates, key=lambda p: os.path.getmtime(p)))
 
 
 # --- pane fallback ----------------------------------------------------------
